@@ -10,7 +10,7 @@ Two modes:
 Partitions backing /setting (Backup.bin) and /cert are tagged PRIVATE and written to a
 separate private/ subfolder: they hold your serial number, device keys and Wi-Fi credentials.
 
-Launch with scripts\\camera_dump_gui.bat, or: python scripts/camera_dump_gui.py
+Launch from the repository root with python -m tools.camera_dump_gui.
 """
 import contextlib
 import hashlib
@@ -112,10 +112,22 @@ METADATA_FILES = ('/proc/partitions', '/proc/mounts', '/proc/mtd', '/proc/cmdlin
                   '/proc/version', '/proc/cpuinfo', '/proc/meminfo', '/proc/devices',
                   '/proc/filesystems', '/proc/iomem', '/proc/diskstats')
 RETRIES = 4
+# Limit direct device reads to known storage node names. The debugger opens
+# arbitrary absolute paths, including devices that can reset the camera.
+STORAGE_PATH = re.compile(
+    r'/dev/(?:nflasha[0-9]+|mmca[0-9]+(?:p[0-9]+)?|mmcblk[0-9]+(?:p[0-9]+)?)'
+)
+EXCLUDED_STORAGE = {'/dev/nflasha23'}
+
+
+def dump_source_allowed(path):
+    return path in METADATA_FILES or (
+        path not in EXCLUDED_STORAGE and STORAGE_PATH.fullmatch(path) is not None
+    )
 
 OPTION_HELP = {
     'whole': ('Include whole-disk devices',
-              'Also pull the entire disk (e.g. nflasha, 1.8 GiB) as one image, in addition to '
+              'Also pull each supported whole disk as one image, in addition to '
               'its partitions. It contains every partition plus the partition table and any '
               'unpartitioned gaps, so it is the most complete copy, but it duplicates the data '
               'and takes as long as all partitions together. Off by default.'),
@@ -228,7 +240,9 @@ def plan_dump(parts, mounts, include_whole_disks=False, skip_private=False,
         # Photos/videos carry GPS, faces and the camera serial in their metadata.
         entry['private'] = entry['private'] or entry['card']
         reason = None
-        if p['bytes'] == 0:
+        if not dump_source_allowed('/dev/' + p['name']):
+            reason = 'storage path is not allowed'
+        elif p['bytes'] == 0:
             reason = 'zero size'
         elif p['name'].startswith(SKIP_PREFIXES):
             reason = 'virtual device'
@@ -256,6 +270,10 @@ def safe_name(camera_path):
 
 # ---------------------------------------------------------------- engine
 class Cancelled(Exception):
+    pass
+
+
+class PullError(Exception):
     pass
 
 
@@ -308,6 +326,8 @@ def pull(session, camera_path, local_path, expected=None, cancel=None, progress=
 
     Returns a manifest record. Never pads or fabricates bytes.
     """
+    if not dump_source_allowed(camera_path):
+        raise PullError(f'{camera_path} is outside the supported storage and metadata paths.')
     local_path = Path(local_path)
     local_path.parent.mkdir(parents=True, exist_ok=True)
     part = local_path.with_name(local_path.name + '.part')
@@ -337,7 +357,14 @@ def pull(session, camera_path, local_path, expected=None, cancel=None, progress=
                 if size <= 0:
                     truncated = True
                     break
-            block = session.call(lambda d, o=offset, s=size: d.read(camera_path, o, s), cancel=cancel)
+            try:
+                block = session.call(
+                    lambda d, o=offset, s=size: d.read(camera_path, o, s), cancel=cancel
+                )
+            except Cancelled:
+                raise
+            except Exception as exc:
+                raise PullError(f'{camera_path}: {exc}') from exc
             if not block:
                 break
             out.write(block)
@@ -351,8 +378,9 @@ def pull(session, camera_path, local_path, expected=None, cancel=None, progress=
               'resumed_from': resumed_from or None,
               'truncated_at_2GiB': truncated,
               'complete': (not truncated) and (expected is None or offset == expected)}
-    if os.path.exists(local_path):
-        os.remove(local_path)
+    if not record['complete']:
+        record['local'] = str(part)
+        return record
     os.replace(part, local_path)
     return record
 
@@ -484,7 +512,7 @@ def run_gui():
     pull_btn.grid(row=2, column=1, sticky='w', padx=4, pady=6)
     ttk.Label(single, foreground='#555', wraplength=700, justify='left', text=(
         'Start with a small partition (/dev/nflasha1) to confirm direct device reads work. '
-        'Regular files work too (/proc/mtd, /proc/partitions). Partition sizes come from '
+        'Supported metadata files include /proc/mtd and /proc/partitions. Partition sizes come from '
         '/proc/partitions after "Connect & scan"; otherwise reads run until the camera returns EOF. '
         'Tip: double-click a row on the Full dump tab to fill this in.')).grid(
         row=3, column=0, columnspan=2, sticky='w')
@@ -601,6 +629,7 @@ def run_gui():
                 log('Cancelled. Partial files are kept as .part and resume on the next run.')
             except Exception as exc:
                 log(f'ERROR: {type(exc).__name__}: {exc}')
+                events.put(('warning', ('Camera operation failed', str(exc))))
             finally:
                 session.close()
                 events.put(('done', None))
@@ -649,9 +678,17 @@ def run_gui():
             if src == '/dev/' + p['name']:
                 expected = p['bytes']
         log(f'Pulling {src} -> {dst}' + (f' ({human(expected)})' if expected else ''))
-        rec = pull(session, src, dst, expected, cancel, progress_cb(name))
+        try:
+            rec = pull(session, src, dst, expected, cancel, progress_cb(name))
+        except PullError as exc:
+            log(f'Skipped: {exc}')
+            events.put(('warning', ('Pull skipped', str(exc))))
+            return
         log(f'Done: {human(rec["bytes"])}  sha256={rec["sha256"]}' +
             ('' if rec['complete'] else '  [INCOMPLETE]'))
+        if not rec['complete']:
+            events.put(('warning', ('Incomplete pull', f'{src}: the partial file was kept.')))
+            return
         Path(str(dst) + '.sha256').write_text(f'{rec["sha256"]}  {dst.name}\n', encoding='utf-8')
 
     def do_full(session):
@@ -728,7 +765,7 @@ def run_gui():
                                          offset + done, total, rate)))
             try:
                 rec = pull(session, f'/dev/{e["name"]}', dst, e['bytes'], cancel, cb)
-            except cd.DebuggerError as exc:
+            except PullError as exc:
                 log(f'  failed: {exc}')
                 events.put(('row', (e['name'], f'error: {exc}'[:60])))
                 manifest['partitions'].append({'name': e['name'], 'error': str(exc)})
@@ -745,7 +782,7 @@ def run_gui():
 
         with (base / 'SHA256SUMS').open('w', encoding='utf-8') as fh:
             for rec in manifest['partitions']:
-                if 'sha256' in rec:
+                if rec.get('complete'):
                     rel = Path(rec['local']).relative_to(base).as_posix()
                     fh.write(f'{rec["sha256"]}  {rel}\n')
         os.replace(mpath, base / 'manifest.json')
@@ -753,6 +790,11 @@ def run_gui():
         log(f'Full dump finished: {base}')
         if bad:
             log(f'Incomplete or failed: {", ".join(bad)}')
+            details = [
+                f'{rec["name"]}: {rec.get("error", "incomplete read")}'
+                for rec in manifest['partitions'] if not rec.get('complete')
+            ]
+            events.put(('warning', ('Incomplete dump', '\n'.join(details))))
         if any(e['private'] for e in plan):
             log('Reminder: keep the private/ folder to yourself (serial number, device keys, Wi-Fi credentials).')
 
@@ -790,6 +832,9 @@ def run_gui():
                 elif kind == 'done':
                     set_busy(False)
                     prog.configure(mode='determinate')
+                elif kind == 'warning':
+                    title, text = val
+                    messagebox.showwarning(title, text, parent=root)
         except queue.Empty:
             pass
         root.after(100, pump)
