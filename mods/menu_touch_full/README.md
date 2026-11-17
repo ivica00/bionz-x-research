@@ -36,3 +36,29 @@ wsl -e bash mods/menu_touch_full/build_mtf2_wsl.sh artifacts/hardware/mtf2_v3/me
 
 `MT_MAX_TABS=7u` accounts for the Mod Loader's injected 7th tab. The standalone E0520 build (6 tabs) is preserved as
 `artifacts/hardware/menu_touch_full.elf`.
+
+## SMOD v2 build for Mod Loader v2 (2026-11-17)
+
+Status: **usable** as part of modset v2 (see `docs/MOD_LOADER_V2_DESIGN.md`).
+
+`-DMT_SMOD_V2` builds the same handlers position-independently. The 632-byte MTF2 state moves
+from the fixed `0x07143920` into the zero-filled bss that Mod Loader v2 maps after the code
+(`__smod_bss`). The `mt_life` lifecycle entry publishes the state after both hooks are applied
+and clears it before they are reverted. Both hooks keep the verified v1 targets and 12-byte
+prologues (`0x06309d48`, `0x06309e54`). The v1 source path is unchanged: a rebuild with the v1
+command still yields the shipped code (FNV `0xbf967582`).
+
+```powershell
+wsl.exe --exec bash mods/menu_touch_full/build_mtf_v2_wsl.sh artifacts/tests/NEW_MTF_V2_BUILD
+.\venv\Scripts\python.exe mods/menu_touch_full/test_mtf_v2_unicorn.py artifacts/tests/NEW_MTF_V2_BUILD
+```
+
+Build `artifacts/tests/mtf-v2-build-1`: `MenuTouchFull.mod` 2764 B (code 2616 B, bss 632 B),
+SHA-256 `5ac0918001477dad1194d3f5ca68bc18a3398eec29881d46969ea5c90cd54c48`. The mod-level
+Unicorn test loads it at two bases and checks hook fixups, forwarding before ON and after OFF,
+the replayed prologue registers, the press capture, and the early release guards. Scenario 10 of
+`tools/native_camera/mlv2/test_mlv2_unicorn.py` runs it through the real v2 core: an enabled
+v1 copy imported from a v1 loader, the file replaced (`ON*`), v1 OFF, v2 ON/OFF. Menu actions
+past the early guards still call stubs only. On the camera (2026-11-17, RAM only) it loaded
+through the v2 core and handled tab taps in all seven tabs. Page, row, swipe, popup and OFF still
+need a camera pass. The SD package still ships the v1 file.

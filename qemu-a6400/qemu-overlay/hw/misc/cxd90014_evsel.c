@@ -3,7 +3,8 @@
  * CXD90014 / CXD90045 camera timing-event block at PA 0xF3C30000.
  *
  * Adapted from Oein/a5000-emulator qemu-overlay/hw/misc/cxd90014_evsel.c
- * (GPL-2.0, Park SungHyun), unchanged except this header.  The a6400
+ * (GPL-2.0, Park SungHyun).  Changes: this header and the opt-in
+ * late-src/late-us properties described below (off by default).  The a6400
  * av-cam programs the same page (E0525 access map) and registers
  * liro-83/84; the internal 33367 us engine frame is the a5000 value
  * [assumption for the a6400] (E0527).
@@ -33,6 +34,17 @@
  * timing signals; which signal each one is, is not known [?].  With no
  * sensor modelled, all enabled channels fire together once per engine frame
  * (33367 us).  The 1/8-frame "int_HS" steps are the comparators above.
+ *
+ * a6400 opt-in (E0557): "late-src" / "late-us" deliver the group-A
+ * channel(s) whose source id (+0x40 + 4k) equals late-src that many
+ * microseconds after the other channels of the same frame pulse.  av-cam
+ * registers its frame start (0x63924A38, resets the HS slot byte) on source
+ * 29 and its HS root (0x639242D8, posts HS_Sequence / VD_Sequence only in
+ * HS slot 0) on source 30.  Source 30 gets the lower channel, so with a
+ * single pulse the root always sees the previous frame's slot 3 and never
+ * posts VD_Sequence.  The real phase between sources 29 and 30 is unknown
+ * [assumption]; the firmware only requires 30 after 29 and before the first
+ * int_HS slot step.  Default late-src = 0: off, identical to the a5000 model.
  */
 
 #include "qemu/osdep.h"
@@ -64,6 +76,10 @@ struct EvselState {
     uint32_t sta, stb;
     QEMUTimer *vd;
     bool ext_vd;                    /* engine frame from SYSV (gpio in 0) */
+    uint32_t late_src;              /* 0 = off (E0557) */
+    uint32_t late_us;
+    uint32_t late_pending;          /* channel mask waiting for s->late */
+    QEMUTimer *late;
     Cmp cmp[NCMP];
     qemu_irq irq_a, irq_b;
 };
@@ -81,17 +97,54 @@ static void ev_update(EvselState *s)
     qemu_set_irq(s->irq_b, (s->stb & R(0xF8)) != 0);
 }
 
+static void ev_fire(EvselState *s, uint32_t mask)
+{
+    uint32_t c = ev_counter();
+    for (int k = 0; k < 8; k++) {
+        if (mask & (1u << k)) {
+            R(0x20 + 4 * k) = c;
+        }
+    }
+    s->sta |= mask;
+    ev_update(s);
+}
+
 static void ev_frame(EvselState *s)
 {
     if (R(0xEC) & 1) {
-        uint32_t en = R(0x10) & 0xff, c = ev_counter();
-        for (int k = 0; k < 8; k++) {
-            if (en & (1u << k)) {
-                R(0x20 + 4 * k) = c;
+        uint32_t en = R(0x10) & 0xff, late = 0;
+        if (s->late_src) {
+            for (int k = 0; k < 8; k++) {
+                if ((en & (1u << k)) && R(0x40 + 4 * k) == s->late_src) {
+                    late |= 1u << k;
+                }
             }
         }
-        s->sta |= en;
-        ev_update(s);
+        if (en & ~late) {
+            ev_fire(s, en & ~late);
+        }
+        if (late) {
+            s->late_pending |= late;
+            timer_mod(s->late, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
+                      (int64_t)s->late_us * SCALE_US);
+        }
+    }
+}
+
+static void ev_late(void *opaque)
+{
+    EvselState *s = opaque;
+    /* only channels still enabled for the same source */
+    uint32_t m = 0;
+    for (int k = 0; k < 8; k++) {
+        if ((s->late_pending & (1u << k)) && (R(0x10) & (1u << k)) &&
+            R(0x40 + 4 * k) == s->late_src) {
+            m |= 1u << k;
+        }
+    }
+    s->late_pending = 0;
+    if (m && (R(0xEC) & 1)) {
+        ev_fire(s, m);
     }
 }
 
@@ -189,6 +242,8 @@ static void ev_reset(DeviceState *dev)
     EvselState *s = CXD_EVSEL(dev);
     memset(s->r, 0, sizeof(s->r));
     s->sta = s->stb = 0;
+    s->late_pending = 0;
+    timer_del(s->late);
     for (int k = 0; k < NCMP; k++) {
         timer_del(s->cmp[k].t);
     }
@@ -207,6 +262,7 @@ static void ev_init(Object *obj)
     sysbus_init_irq(sbd, &s->irq_a);
     sysbus_init_irq(sbd, &s->irq_b);
     s->vd = timer_new_ns(QEMU_CLOCK_VIRTUAL, ev_vd, s);
+    s->late = timer_new_ns(QEMU_CLOCK_VIRTUAL, ev_late, s);
     qdev_init_gpio_in(DEVICE(obj), ev_vd_in, 1);
     for (int k = 0; k < NCMP; k++) {
         s->cmp[k] = (Cmp){ s, k,
@@ -217,6 +273,8 @@ static void ev_init(Object *obj)
 
 static const Property ev_props[] = {
     DEFINE_PROP_BOOL("ext-vd", EvselState, ext_vd, false),
+    DEFINE_PROP_UINT32("late-src", EvselState, late_src, 0),
+    DEFINE_PROP_UINT32("late-us", EvselState, late_us, 0),
 };
 
 static void ev_class_init(ObjectClass *klass, const void *data)

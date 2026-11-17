@@ -6,8 +6,15 @@
 #define MLV2_H
 #include <stdint.h>
 
-/* ---- Firmware addresses (ILCE-6400, identity-checked by the guard) ---- */
-#define MLV2_VIEW_BASE        0x155e6000u
+/* ---- Firmware addresses (ILCE-6400 reference layout, identity-checked by the guard) ----
+ * Another process layout (QEMU) runs the same libraries at other bases. The guard relocates the
+ * shim (see package.py: the shim is linked twice and every word that moves with the view base or
+ * with the shim address is recorded), and the shim publishes the differences in ShimState. */
+#define MLV2_REF_VIEW_BASE    0x155e6000u
+#define MLV2_REF_TESTCMD_BASE 0x05660000u
+#ifndef MLV2_VIEW_BASE
+#define MLV2_VIEW_BASE        MLV2_REF_VIEW_BASE
+#endif
 #define MLV2_SET_TEXT         (MLV2_VIEW_BASE + 0x14f6d0u + 1u)
 #define MLV2_SET_MODE         (MLV2_VIEW_BASE + 0x155a68u + 1u)
 #define MLV2_V1_ANCHOR        0x1615ec40u   /* v1 anchor {magic, state}; also used by the tab icon */
@@ -15,13 +22,19 @@
 #define MLV2_V1_STATE_BYTES   8192u         /* tab icon cache lives at state + 8180 */
 
 /* ---- Shim ---- */
+#ifndef MLV2_SHIM_ADDR
 #define MLV2_SHIM_ADDR        0x05662760u   /* /usr/lib/libtestcmd.so RX zero tail, 2208 bytes */
+#endif
+#define MLV2_REF_SHIM_ADDR    0x05662760u
 #define MLV2_SHIM_CAP         2208u
 #define MLV2_SHIM_SLOT        MLV2_SHIM_ADDR  /* first word of the shim: ShimState pointer */
 #define MLV2_CORE_PATH        "/tmp_bt/mlv2/core.bin"
 #define MLV2_SD_MANAGED       "/tmp_bt/mlv2/sd-managed"
 #define MLV2_SD_DISABLED      "/tmp_bt/mlv2/sd-disabled"
 #define MLV2_SD_STOPPED       "/tmp_bt/mlv2/sd-stopped"
+/* Reload request: one mod file name (no directory). The core consumes it on the UI thread. */
+#define MLV2_RELOAD_REQ       "/tmp_bt/mlv2/reload"
+#define MLV2_RELOAD_RESULT    "/tmp_bt/mlv2/reload.result"
 
 /* ---- Core image file ---- */
 #define MLV2_CORE_MAGIC       0x52434c4du   /* "MLCR" */
@@ -46,7 +59,12 @@ typedef struct ShimState {
     uint32_t (*before_set_root)(uint32_t menu, uint32_t root);
     void     (*after_refresh)(uint32_t menu);
     int      (*before_enter)(uint32_t menu, uint32_t leaf);
+    /* Layout ABI 1 (zero in states created by older shims): runtime base - reference base. */
+    uint32_t layout_magic;                 /* MLV2_LAYOUT_MAGIC */
+    uint32_t view_bias;                    /* viewUnified2.so */
+    uint32_t testcmd_bias;                 /* libtestcmd.so (the shim cave) */
 } ShimState;
+#define MLV2_LAYOUT_MAGIC     0x3159414cu   /* "LAY1" */
 
 /* ---- SMOD file formats ---- */
 #define SMOD_MAGIC            0x444f4d53u   /* "SMOD" */
@@ -73,6 +91,25 @@ typedef struct __attribute__((packed)) {
  * Hook: the core copies tmpl into the target. If fixup_off < patch_size - 3, the 32-bit word
  * at tmpl[fixup_off] is an offset into the mod and is replaced by (base + offset). */
 #define SMOD_V2_NO_FIXUP      0xffu
+/* flags bit 2: a relocation table follows the code in the file (not loaded):
+ *   u32 "RLC1", u16 nlib, u16 nrel,
+ *   nlib x { u32 ref_lo, ref_hi; char name[24] }      reference-layout ranges by library file name
+ *   nrel x u32 (code offset | lib << 24)              32-bit words that hold reference addresses
+ *   u32 fnv1a_32 of the table bytes before it.
+ * The core adds (runtime base - reference base) of the named library, taken from /proc/self/maps
+ * (base = first mapping at file offset 0), to each listed word after the code hash check, and to
+ * every hook target that falls inside a listed range. A library that is not mapped refuses the mod. */
+#define SMOD_V2_FLAG_RELOC    4u
+/* flags bit 3: switch ON automatically the first time the core lists the file (once per
+ * appearance; a user OFF sticks until the file is removed and added again). */
+#define SMOD_V2_FLAG_AUTO_ON  8u
+#define SMOD_RELOC_MAGIC      0x31434c52u   /* "RLC1" */
+#define SMOD_RELOC_MAX_LIBS   8u
+#define SMOD_RELOC_MAX        1024u
+typedef struct __attribute__((packed)) {
+    uint32_t ref_lo, ref_hi;
+    char     name[24];
+} SmodRelocLib;
 typedef struct __attribute__((packed)) {
     uint32_t magic, version, flags;
     char     name[32];

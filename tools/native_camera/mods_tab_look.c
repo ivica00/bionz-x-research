@@ -23,7 +23,7 @@
 _Static_assert(MTL_PIX_OFF + MTL_PIXELS * 2u <= MTL_BUF_BYTES, "icon exceeds mapping");
 
 /* u16 npal, u16 nruns, u16 pal[MTL_STATES][npal], {u8 count-1, u8 idx}[nruns]. */
-extern const uint8_t mtl_icon_rle[];
+extern const uint8_t mtl_icon_rle[] __attribute__((visibility("hidden")));
 
 #ifndef MTL_BUILTIN
 /* The legacy standalone mod stores its cache in its writable code mapping. */

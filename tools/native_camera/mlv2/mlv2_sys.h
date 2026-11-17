@@ -6,6 +6,7 @@
 
 #define ML_O_RDONLY       0
 #define ML_O_WR_CREAT_APP 0x441
+#define ML_O_WR_CREAT_TRUNC 0x241
 #define ML_O_DIRECTORY    040000
 #define ML_PROT_RWX       7
 #define ML_MAP_ANON_PRIV  0x22
@@ -21,6 +22,7 @@ static inline int ml_open(const char *p, int flags) { return ml_sc3(5, (int)p, f
 static inline int ml_read(int fd, void *b, uint32_t n) { return ml_sc3(3, fd, (int)b, (int)n); }
 static inline int ml_write(int fd, const void *b, uint32_t n) { return ml_sc3(4, fd, (int)b, (int)n); }
 static inline int ml_close(int fd) { return ml_sc3(6, fd, 0, 0); }
+static inline int ml_unlink(const char *p) { return ml_sc3(10, (int)p, 0, 0); }
 static inline int ml_lseek(int fd, uint32_t off) { return ml_sc3(19, fd, (int)off, 0); }
 static inline int ml_getdents64(int fd, void *b, uint32_t n) { return ml_sc3(217, fd, (int)b, (int)n); }
 static inline int ml_mprotect(uint32_t a, uint32_t n, int prot) { return ml_sc3(125, (int)a, (int)n, prot); }
@@ -63,11 +65,11 @@ static inline int ml_make_rwx(uint32_t addr, uint32_t len) {
     return ml_mprotect(beg, end - beg, ML_PROT_RWX);
 }
 
-static inline uint32_t ml_fnv1a(const uint8_t *d, uint32_t n) {
-    uint32_t h = 0x811c9dc5u;
+static inline uint32_t ml_fnv1a_more(uint32_t h, const uint8_t *d, uint32_t n) {
     while (n--) { h ^= *d++; h *= 0x01000193u; }
     return h;
 }
+static inline uint32_t ml_fnv1a(const uint8_t *d, uint32_t n) { return ml_fnv1a_more(0x811c9dc5u, d, n); }
 
 static inline void ml_memcpy(void *dst, const void *src, uint32_t n) {
     uint8_t *d = (uint8_t *)dst; const uint8_t *s = (const uint8_t *)src;
@@ -87,8 +89,9 @@ static inline int ml_strcmp(const char *a, const char *b) {
     return (int)(uint8_t)*a - (int)(uint8_t)*b;
 }
 
-static inline void ml_log(const char *msg, uint32_t val) {
-    int fd = ml_open("/tmp_bt/mods/mod_loader.log", ML_O_WR_CREAT_APP);
+/* Write one "msg 0123abcd" line to path (flags: append or truncate). */
+static inline void ml_log_to(const char *path, int flags, const char *msg, uint32_t val) {
+    int fd = ml_open(path, flags);
     if (fd < 0) return;
     char buf[64];
     uint32_t i = 0;
@@ -101,6 +104,10 @@ static inline void ml_log(const char *msg, uint32_t val) {
     buf[i++] = '\n';
     ml_write(fd, buf, i);
     ml_close(fd);
+}
+
+static inline void ml_log(const char *msg, uint32_t val) {
+    ml_log_to("/tmp_bt/mods/mod_loader.log", ML_O_WR_CREAT_APP, msg, val);
 }
 
 #endif

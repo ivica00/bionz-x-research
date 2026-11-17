@@ -10,7 +10,8 @@ small, explicit Unicorn machine model built from observed facts:
   the cramfs initramfs at ``0x00700000`` and the reconstructed ATAGS at ``0x00103000``
   (nflasha1 ``boot/loadaddr.txt``);
 * boot registers r0 = 0, r1 = recovered machine ID (``0x00000DA9``), r2 = ATAGS,
-  CPSR = SVC with IRQ/FIQ masked, MMU off (the kernel enables its own page tables,
+  CPSR = SVC with IRQ/FIQ masked and an opt-in async-abort mask at entry.
+  MMU off (the kernel enables its own page tables,
   which Unicorn translates);
 * PL011 UART0 at ``0xF2000000``: writes to DR are captured as the ``ttyAM0`` serial
   log, FR reads report TXFE|RXFE, DR reads are 0; every access is counted;
@@ -181,7 +182,10 @@ class UnicornMachine:
                  use_code_hook: bool = False,
                  boot_patches: dict | None = None,
                  symbols: dict[str, int] | None = None,
-                 target_id: str | None = None):
+                 target_id: str | None = None,
+                 mask_async_abort_at_entry: bool = False,
+                 mask_async_abort_on_irq: bool = False,
+                 allow_nonsecure_af_writes: bool = False):
         if int.from_bytes(kernel_raw[0:4], 'little') != 0xE321F0D3:
             raise MachineError('kernel_raw does not start with the ARM kernel head')
         if not machine_id:
@@ -193,6 +197,8 @@ class UnicornMachine:
         self.initrd = initrd
         self.atags = atags
         self.machine_id = machine_id
+        self.entry_cpsr = 0xD3 | (0x100 if mask_async_abort_at_entry else 0)
+        self.mask_async_abort_on_irq = mask_async_abort_on_irq
         self.kernel_load = kernel_load
         self.initrd_load = initrd_load
         self.boot_params = boot_params
@@ -427,6 +433,19 @@ class UnicornMachine:
             self.cpu_model = 'cortex-a9'
         except Exception:
             self.cpu_model = 'default'
+        self.entry_scr = None
+        if allow_nonsecure_af_writes:
+            # E0559: the QEMU reference disables EL3. On Unicorn's A9,
+            # enable just the non-secure CPSR.A/F writes via SCR.AW/FW.
+            if self.cpu_model != 'cortex-a9':
+                raise MachineError('non-secure A/F writes require the Cortex-A9 model')
+            scr_register = (15, 0, 1, 1, 0, 3, False)
+            if self.uc.cpr_read(*scr_register) != 0x01:
+                raise MachineError('non-secure A/F writes require reset SCR=0x01')
+            self.uc.cpr_write(*scr_register, 0x31)
+            self.entry_scr = self.uc.cpr_read(*scr_register)
+            if self.entry_scr != 0x31:
+                raise MachineError('SCR.AW/FW readback did not match')
         self._mapped: list[list[int]] = []
         self.serial = bytearray()
         self.mmio_counts: Counter = Counter()
@@ -479,7 +498,7 @@ class UnicornMachine:
         self.uc.reg_write(UC_ARM_REG_R0, 0)
         self.uc.reg_write(UC_ARM_REG_R1, self.machine_id)
         self.uc.reg_write(UC_ARM_REG_R2, self.boot_params)
-        self.uc.reg_write(UC_ARM_REG_CPSR, 0x000000D3)
+        self.uc.reg_write(UC_ARM_REG_CPSR, self.entry_cpsr)
         self.uc.reg_write(UC_ARM_REG_PC, self.kernel_load)
         self._patch_exclusive_instructions()
         self._build_ex_table()
@@ -1534,7 +1553,10 @@ class UnicornMachine:
             self.mode_lr['usr'] = self.uc.reg_read(UC_ARM_REG_LR)
         # Enter ARM IRQ mode first, then write the *banked* SPSR_irq/LR_irq; SPSR is
         # per-mode, so writing it before the CPSR switch would hit SPSR_svc instead.
-        self.uc.reg_write(UC_ARM_REG_CPSR, 0x12 | 0xC0)
+        # QEMU's AArch32 IRQ entry sets CPSR.A. Isolate that bit from the
+        # other differences in the legacy synthetic IRQ entry (E0559).
+        irq_cpsr = 0xD2 | (0x100 if self.mask_async_abort_on_irq else 0)
+        self.uc.reg_write(UC_ARM_REG_CPSR, irq_cpsr)
         self.uc.reg_write(UC_ARM_REG_SPSR, cpsr)
         self.uc.reg_write(UC_ARM_REG_LR, pc + 4)
         self.uc.reg_write(UC_ARM_REG_PC, self.vectors_base + 0x18)
@@ -1545,7 +1567,8 @@ class UnicornMachine:
         self._gic_iar_served = False
         if len(self._injection_pcs) < 20:
             self._injection_pcs.append({'pc': f'0x{pc:08x}',
-                                        'cpsr': f'0x{cpsr:08x}'})
+                                        'cpsr': f'0x{cpsr:08x}',
+                                        'irq_cpsr': f'0x{irq_cpsr:08x}'})
         return True
 
     # ------------------------------------------------------- exclusive fallback
@@ -4050,6 +4073,8 @@ class UnicornMachine:
         serial = bytes(self.serial)
         return {
             'machine_id': self.machine_id,
+            'entry_cpsr': f'0x{self.entry_cpsr:08x}',
+            'entry_scr': self.entry_scr,
             'kernel_load': self.kernel_load,
             'initrd_load': self.initrd_load,
             'boot_params': self.boot_params,
@@ -4145,6 +4170,7 @@ class UnicornMachine:
             'hotspots': hotspots,
             'timer_model': {
                 'enabled': self.timer_irq_model,
+                'mask_async_abort_on_irq': self.mask_async_abort_on_irq,
                 'timer_irq': self.timer_irq,
                 'timer_counter': self._timer_counter,
                 'timer_counter_reads': self._timer_counter_reads,

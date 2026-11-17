@@ -53,11 +53,101 @@ Later records E0525–E0541, on that same machine:
 fixed sleep. A `/proc/snsc_boot_time` read can block for more than 30 seconds and
 then answer (E0530). That delay is not a hung shell.
 
-**Next:** name the writer of the byte at `0x64354174`. It is 0 at the stall,
-so `0x639267A4` skips `0x639267BC`. A nonzero byte would still not publish
-`0x0105`: `0x63D3BD56` returns the old halfword unless the request is
-`0x0112`. `0x63988EAA` remains a different object. The monitor layout class
-from E0542 stays a separate track.
+- E0557: the third writer of `0x64351F28` is `0x63923A1A` in `VD_Sequence`
+  (`0x63923874`). Only the HS root `0x639242D8` posts `VD_Sequence`, and only
+  in HS slot 0. The HS root is on timing-event source 30 (ch5). The frame
+  start `0x63924A38`, which resets the slot, is on source 29 (ch6). The evsel
+  model fires both in one pulse, so the root always reads slot 3 and
+  `VD_Sequence` never runs. The byte at `0x64354174` is set by `int_HS` once
+  per frame; the 0 in E0553 was a mid-frame sample. With the opt-in
+  `EVSEL_LATE_US=500` (evsel `late-src=30 late-us=500`), `VD_Sequence` runs
+  every frame and module 1 reports `0x0118`. The sequencer passes step 12 and
+  waits at step 32, `WAIT{3,4,5,6,10,12}`, on module 3: `0x032E` requested,
+  `0x0326` reported. VPH ch51 (YUV) is programmed: `lb=0x400`, 570 lines,
+  two alternating bases. The 500 µs phase is an assumption.
+
+- E0561: module 3 accepts `0x32E` only after a counter passes 6. The counter
+  advances only on frames with a new, valid PQD Ydet (luminance statistics)
+  record. The producer `0x63BEE670` (`PQD_YdetRegReadManager.cpp`) never
+  runs, so the consumer reads a zero record every frame.
+
+- [E0563](../docs/evidence/0563-qemu-ydet-adapter-and-opd-comparison.md):
+  `0x63D3DD22` calls the Ydet adapter with a handle and four bytes of input
+  metadata. The a6400 shares the a5000 OPD base and bit-1 start instruction,
+  with seven firmware IRQ records and different IRQ values. The tested OPD
+  start sites and Ydet producer stayed idle at step 32. A passive replay
+  counted 509 single-window descriptor lookups and 556 consumer visits.
+
+- [E0564](../docs/evidence/0564-qemu-ydet-window-configuration-reaches-camcore.md):
+  the window descriptor is valid and writes `0xF3015848–0xF3015854`.
+  The getter pair belongs to the third argument of the window setup;
+  its first base is `0xF3000000`, yielding candidate result address
+  `0xF3015700`. The result publisher still receives no calls.
+  A predicate in the SuperSlow manager checks `0x640D39BC` and returns zero.
+
+- [E0565](../docs/evidence/0565-qemu-superslow-field-and-pqd-came-dispatch.md):
+  `0x640D39BC` holds a SuperSlow resource pointer. Its constructor clears
+  it, and normal `VD_Pre` continues after the resource check. The normal
+  result path is the CamCore job callback at `0x639023AC`, which submits
+  `EC::PQD_CamE` and reaches the Ydet producer via `0x63D3DD22`. A passive
+  trace saw 206 submissions with this callback forwarded to the EE
+  controller at `0x63CBCA06`, and no callback execution.
+
+- [E0566](../docs/evidence/0566-qemu-ee-callback-stays-pending.md):
+  EE accepts the submissions and writes `0x639023AD` to its pending slot
+  at `+0x84`. The observed boot never ran the promotion function
+  `0x63CBC586` or the completion load at `0x63CBBF6E`. The registered
+  event owner is `CamPigInterruption23` at base `0xF3000000`. Startup
+  programs paths 2 and 3, but the unmodelled enable register at `+0x50`
+  reads zero between the two writes.
+
+- [E0567](../docs/evidence/0567-qemu-campig-enable-register-readback.md):
+  the opt-in word at `0xF3000050` lets original firmware retain both enable
+  bits and write `0x0C000000`. Paired replays still wait at step 32 with
+  zero activation and result-publication hits.
+
+- [E0568](../docs/evidence/0568-qemu-campig-dispatch-order-and-input-sync.md):
+  firmware starts input sync at `0xF3120210` and registers IRQ 36 event A.
+  The IRQ 37 table orders completion before promotion for coalesced status.
+  No frame callback ran. The 36 MHz input clock is inferred from the
+  programmed geometry and nominal frame period.
+
+- [E0569](../docs/evidence/0569-qemu-sgc1-event-a.md):
+  the opt-in input timer delivered 231 events to the original IRQ 35
+  handler and callback. The earlier IRQ 36 trial instead invoked the
+  `0xF3000000` handler. The callback's front-end write branch remained idle.
+
+**Parked live-image checkpoint:** with `EVSEL_LATE_US=500`,
+`CAMPIG_ENABLE_READBACK=1`, and `SGC1_EVENT_A=1`, the sequencer
+waits at step 32 (`0x032E` requested, `0x0326` reported).
+Resume at the IRQ 35 callback `0x6375BBF0`: its front-end write branch
+at `0x6375BC46`, CamPig IRQ 36 completion, and the Ydet producer
+`0x63BEE670` all stayed idle. The ch51 buffer contents remain unverified.
+
+**Rear-monitor milestone:** [E0572](../docs/evidence/0572-qemu-a6400-rear-lcd-layout-on-panel.md)
+captures the original `LayoutST_NORMAL_WITH_INFO_LR` on QEMU console 0
+after an opt-in overlay selects device 1 in the firmware display controller.
+Stock boot still selects the viewfinder. The next boundary is the
+`InputService::getInputEventStatus` key/value contract that selects the
+same device through the original input path.
+
+[E0573](../docs/evidence/0573-qemu-a6400-rear-panel-controls.md) adds an
+interactive panel around the VPH output. The opt-in keys drive ADC, GPIO,
+sub-micro and TPU paths. The original firmware opens MENU and responds to
+directional and center input. The manual Finder/Monitor setting is now
+reachable for a stock boot verification.
+
+[E0574](../docs/evidence/0574-qemu-a6400-blank-panel-recovery.md) confirmed
+the panel was receiving real black frames in a long-running instance.
+A fresh instance recovered the original menu. In a separate replay,
+boot-time blanks had zero ch53 base and both OSD buffers were empty.
+The late blank still needs a same-run register and buffer capture.
+
+[E0575](../docs/evidence/0575-qemu-mod-loader-v2-compatibility-boundary.md)
+qualifies the Mod Loader v2 target mismatch. QEMU runs `im.elf` as PID 144
+in the observed boot, with Sony library bases different from the current
+physical guard. Its unchanged ARM check returns `-5 identity/maps` in
+the guest. See [the mod development workflow](MOD_DEVELOPMENT.md).
 
 ## Captured-input qualification (2026-11-16 / E0524)
 

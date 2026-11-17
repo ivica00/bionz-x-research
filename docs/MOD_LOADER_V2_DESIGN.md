@@ -170,6 +170,79 @@ Mod Loader v2 M1 is implemented and passed its camera test, but it is uncommitte
   - M2: a boot package. It writes `/setting` internal flash, so it needs explicit user approval.
 - **Rule for camera tests:** Arrivederci must be OFF before power-off.
 
+## MenuTouchFull as SMOD v2 (offline, 2026-11-17)
+
+`mods/menu_touch_full/build_mtf_v2_wsl.sh` builds MenuTouchFull position-independently
+(`-DMT_SMOD_V2`). `mod_v2.ld` now exports `__smod_bss` at the end of the code; a mod reaches
+its `--bss` area through that hidden symbol. The Arrivederci v2 rebuild stays byte-identical
+(`90dc6290…eaf3`). Build `artifacts/tests/mtf-v2-build-1` (SHA-256 `5ac09180…4c48`, 2764 B)
+passed the mod-level Unicorn test at two load bases and scenario 10 of the core harness
+(`mlv2-sd-build-3` core, `unicorn-core.txt`). Scenario 10 imports an enabled v1 copy, replaces
+the file, switches v1 OFF and v2 ON/OFF.
+
+Camera run (2026-11-17, RAM and `/tmp_bt` only, user-approved). The guard check reported
+`hooks=v1 v1_build=0 shim=zero`. `install_mlv2 --build mlv2-sd-build-3 --mod` the v2 file
+returned `MLV2_RESULT=0 changed=1` (receipt `mlv2-sd-build-3/install-receipt-20261117-100053.json`).
+Both touch prologues were still stock, so no v1 copy was active. After the user's menu test
+(reported "works"), the readback (`mtf-v2-build-1/camera-readback-20261117.json`) shows the
+loader log `core_init`, `core_load 529057cd`, `mod_on 04075000`. Both hooks jump to the mapping
+(`0x040751f5`, `0x04075115`). The 2616 resident code bytes equal the file. The MTF2 state is
+published (enabled 2, inflight 0, last_err 0) with seven recorded actions, all tab taps
+(tabs 6 to 1, then Mods). Page, row, swipe and popup actions and v2 OFF were not exercised in this
+run, and the mod was left ON. Uptime advanced and the debugger replied. A restart returns
+the SD package's v1 loader. Next: exercise row, popup and swipe actions and OFF, then switch the SD
+package to the v2 file.
+
+## Modset v2: usable (2026-11-17)
+
+Status: **usable** with a RAM install after each boot. The user marked this modset as usable after the camera runs recorded here and in E0555/E0556.
+
+| Part | File | SHA-256 |
+| --- | --- | --- |
+| Mod Loader v2 (shim, core, guard) | `artifacts/tests/mlv2-sd-build-3` | core `552220a4…8b3e`, request `fac109bb…d49e`, guard `1d84f253…c9d` |
+| MenuTouchFull (SMOD v2) | `artifacts/tests/mtf-v2-build-1/MenuTouchFull.mod` | `5ac09180…4c48` |
+| Arrivederci, fitted Classic matrix (SMOD v2) | `artifacts/tests/arrivederci-v3-build-1/Arrivederci.mod` | `c09693b8…a88a` |
+
+Install: `python -m tools.research.install_mlv2 --build artifacts/tests/mlv2-sd-build-3 --mod …/MenuTouchFull.mod --mod …/Arrivederci.mod`. Known limits: the MenuTouchFull v2 camera run confirmed tab taps only. Arrivederci color is Movie-only and backup-backed, so turn it OFF before power-off. The card's auto-boot still installs the v1 loader. Booting this set from the card needs the M2 `/setting` update, which has not been done.
+
+SD copy: `E:\modset-v2\` was created on 2026-11-17 with the files above, `build.json`, a `README.txt` and `SHA256SUMS`. All seven entries verified with `sha256sum -c` after the copy. The card was in a host card reader (removable FAT32, no Sony USB device present), so the camera had no access. Nothing existing was overwritten. `boot-mod-loader\` and `mods\MenuTouchFull.mod` were re-hashed unchanged. Staging copy: `artifacts/tests/modset-v2-sd-1/`.
+
+## Arrivederci on the v2 loader without a Color Mode round trip (2026-11-17)
+
+See [E0555](evidence/0555-arrivederci-menu-exit-recompute-and-cc8-refill.md). With the v2 loader
+resident, Arrivederci v2 was staged and toggled ON and then OFF from the Mods tab. Each time the
+user left the menu without changing Color Mode, the CC matrix recompute had already run:
+B8, both live copies (+0x12c, +0x686) and record 31 matched the expected state in both
+directions. This resolves the M3 item "Color Mode shuffling" for Mods-tab use; the exact
+trigger call is not isolated. A guarded write to CC+8 (the per-frame matrix stage source)
+was overwritten within about one frame, so it is not a usable color target. The
+off-before-backup handoff remains open, and Arrivederci stays out of `MLV2.TAR`.
+
+## Process-layout relocation and QEMU (2026-11-17)
+
+See [E0577](evidence/0577-qemu-real-mods-relocation-and-hot-reload.md). Addresses stay those of the
+ILCE-6400 reference layout. The guard finds `im.elf` by name, takes the viewUnified2/libtestcmd bases from
+its maps and relocates hooks, tables, entries and the shim. The ML2Q v2 request carries 15 shim relocations
+found by a two-link diff. The core reads the view difference and the shim slot from `ShimState`. SMOD v2 mods
+packed with `--reloc-layout` carry a library relocation table that the core applies from `/proc/self/maps`.
+At zero bias every step equals the earlier behavior. Build `artifacts/tests/mlv2-layout-build-2` and
+`mtf-v2-reloc-build-1` ran in the QEMU Sony menu; they have not run on the camera.
+
+SMOD v2 flag 8 (`SMOD_V2_FLAG_AUTO_ON`): the core switches the mod ON the first time it lists the
+file. ModsTabLook ships this way for QEMU (`mods/mods_tab_look/build_mtl_v2_wsl.sh`). When the
+ModsTabLook hook is absent, the core gives the Mods tab the sixth tab's icon.
+
+## Reload request (offline, 2026-11-17)
+
+See [E0576](evidence/0576-mod-loader-v2-reload-request.md). Build `artifacts/tests/mlv2-reload-build-1` changes
+only the core (`1a105461…a4a1`). Shim, guard and request are identical to `mlv2-sd-build-3`, so an installed v2
+loader picks it up as a core upgrade. A file name in `/tmp_bt/mlv2/reload` makes the core replace that enabled
+SMOD v2 mod on the UI thread. It loads and hash-checks the new copy into a fresh mapping and checks the hook
+targets. Then it switches the old copy OFF with readback and stops if that fails. Finally it applies the new
+hooks and runs `on()`. The result goes to `/tmp_bt/mlv2/reload.result`.
+`python -m tools.research.reload_mod --mod NEW.mod [--core …/core.bin]` stages the file and the request and
+reads the hooks back. It has not been run on a camera.
+
 ## v2 SD boot and deactivation (offline build)
 
 Build from the repository root:

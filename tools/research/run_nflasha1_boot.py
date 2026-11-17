@@ -61,11 +61,17 @@ def main():
                         help='override the historical loader VA for --trace-thumb-boundary')
     parser.add_argument('--thumb-stop', action='append', default=[], type=parse_stop,
                         help='extra stop recorded with --trace-thumb-boundary: '
-                             'user-return, kernel-entry, or pc:ADDRESS')
+                             'user-return, user-loader, kernel-entry, or pc:ADDRESS')
     parser.add_argument('--trace-reg', action='append', default=[],
                         metavar='PC:REGS')
     parser.add_argument('--cmdline-bootparams', action='store_true')
     parser.add_argument('--sony-override', action='store_true')
+    parser.add_argument('--mask-async-abort-at-entry', action='store_true',
+                        help='set CPSR.A at kernel entry as observed in QEMU (E0548)')
+    parser.add_argument('--mask-async-abort-on-irq', action='store_true',
+                        help='set CPSR.A on synthetic IRQ entry as in QEMU (E0559)')
+    parser.add_argument('--allow-nonsecure-af-writes', action='store_true',
+                        help='allow guest CPSR.A/F writes via Cortex-A9 SCR.AW/FW')
     parser.add_argument('--stub', action='append', default=[],
                         metavar='ADDRESS=VALUE', help='MMIO read stub (hex)')
     parser.add_argument('--output', type=Path, default=OUT / 'nflasha1-boot-report.json')
@@ -189,6 +195,9 @@ def main():
         target_profile,
         contract.raw_kernel, contract.initrd, contract.atags,
         machine_id=contract.machine.machine_id,
+        mask_async_abort_at_entry=args.mask_async_abort_at_entry,
+        mask_async_abort_on_irq=args.mask_async_abort_on_irq,
+        allow_nonsecure_af_writes=args.allow_nonsecure_af_writes,
         kernel_load=contract.load_addresses['kernel_load'],
         initrd_load=contract.load_addresses['initrd_load'],
         boot_params=contract.load_addresses['boot_params'],

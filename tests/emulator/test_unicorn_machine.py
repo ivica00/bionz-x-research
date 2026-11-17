@@ -2,6 +2,8 @@
 import struct
 import unittest
 
+from unicorn.arm_const import UC_ARM_REG_CPSR
+
 from src.a6400.execution.arm_atags import build_atags
 from src.a6400.execution.unicorn_machine import UnicornMachine
 
@@ -56,6 +58,14 @@ class UnicornMachineTests(unittest.TestCase):
     def test_kernel_head_word_is_required(self):
         with self.assertRaises(Exception):
             UnicornMachine(b'\x00' * 0x100, b'\x00', b'', machine_id=MACHINE_ID)
+
+    def test_async_abort_mask_is_opt_in_and_survives_kernel_head(self):
+        for enabled, expected in ((False, 0xD3), (True, 0x1D3)):
+            with self.subTest(enabled=enabled):
+                machine = self.make_machine(mask_async_abort_at_entry=enabled)
+                self.assertEqual(machine.uc.reg_read(UC_ARM_REG_CPSR), expected)
+                machine.uc.emu_start(machine.kernel_load, machine.kernel_load + 4, count=1)
+                self.assertEqual(machine.uc.reg_read(UC_ARM_REG_CPSR), expected)
 
 
 if __name__ == '__main__':

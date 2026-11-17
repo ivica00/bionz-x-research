@@ -33,6 +33,7 @@
 #include "hw/sd/sd.h"
 #include "hw/sd/sdhci.h"
 #include "hw/misc/cxd90014_sio.h"
+#include "hw/misc/cxd90014_adc.h"
 #include "hw/sysbus.h"
 #include "system/blockdev.h"
 #include "qemu/log.h"
@@ -41,6 +42,7 @@
 #include "system/address-spaces.h"
 #include "system/system.h"
 #include "target/arm/cpu.h"
+#include "ui/input.h"
 
 #define CXD90045_MACHINE_ID      0x00000DA9
 #define CXD90045_RAM0_BASE       0x00000000ULL
@@ -780,6 +782,319 @@ static void sony_a6400_sio_log(void *opaque, int ch, uint32_t mode,
 static char *sony_a6400_sm_file;
 static uint8_t sony_a6400_sm_frames[384];
 static bool sony_a6400_sm_loaded;
+static bool sony_a6400_rear_controls;
+static DeviceState *sony_a6400_rear_adc;
+static QKeyCode sony_a6400_adc_owner[2];
+static uint16_t sony_a6400_front_pressed;
+static bool sony_a6400_af_lever_low;
+static uint16_t sony_a6400_wheel_count;
+
+static uint64_t sony_a6400_wheel_read(void *opaque, hwaddr offset, unsigned size)
+{
+    return sony_a6400_wheel_count;
+}
+
+static void sony_a6400_wheel_write(void *opaque, hwaddr offset, uint64_t value,
+                                  unsigned size)
+{
+    sony_a6400_wheel_count = value;
+}
+
+static const MemoryRegionOps sony_a6400_wheel_ops = {
+    .read = sony_a6400_wheel_read,
+    .write = sony_a6400_wheel_write,
+    .endianness = DEVICE_LITTLE_ENDIAN,
+    .valid = { .min_access_size = 2, .max_access_size = 2 },
+    .impl = { .min_access_size = 2, .max_access_size = 2 },
+};
+
+static void sony_a6400_rear_reset(void *opaque)
+{
+    memset(sony_a6400_adc_owner, 0, sizeof(sony_a6400_adc_owner));
+    sony_a6400_front_pressed = 0;
+    sony_a6400_af_lever_low = false;
+    sony_a6400_wheel_count = 0;
+}
+
+static void sony_a6400_rear_key(DeviceState *dev, QemuConsole *src,
+                               InputEvent *event)
+{
+    static const struct {
+        QKeyCode key;
+        unsigned channel;
+        uint16_t level;
+    } keys[] = {
+        { Q_KEY_CODE_RET,   3, 45  },
+        { Q_KEY_CODE_UP,    3, 182 },
+        { Q_KEY_CODE_LEFT,  3, 356 },
+        { Q_KEY_CODE_DOWN,  3, 520 },
+        { Q_KEY_CODE_RIGHT, 3, 686 },
+        { Q_KEY_CODE_DELETE, 0, 45 },
+        { Q_KEY_CODE_F,     0, 520 },
+    };
+    InputKeyEvent *key = event->u.key.data;
+    QKeyCode code = qemu_input_key_value_to_qcode(key->key);
+    uint16_t front = 0;
+
+    switch (code) {
+    case Q_KEY_CODE_BRACKET_LEFT:
+    case Q_KEY_CODE_BRACKET_RIGHT:
+        if (key->down) {
+            sony_a6400_wheel_count += code == Q_KEY_CODE_BRACKET_RIGHT ? 1 : -1;
+        }
+        return;
+    case Q_KEY_CODE_A:
+        qemu_set_irq(qdev_get_gpio_in(sony_a6400_gpio, 7), !key->down);
+        return;
+    case Q_KEY_CODE_B:
+        if (key->down) {
+            sony_a6400_af_lever_low = !sony_a6400_af_lever_low;
+            qemu_set_irq(qdev_get_gpio_in(sony_a6400_gpio, 11),
+                         !sony_a6400_af_lever_low);
+        }
+        return;
+    case Q_KEY_CODE_M:
+        front = BIT(2);
+        break;
+    case Q_KEY_CODE_P:
+        front = BIT(1);
+        break;
+    case Q_KEY_CODE_L:
+        front = BIT(9);
+        break;
+    case Q_KEY_CODE_R:
+        qemu_set_irq(qdev_get_gpio_in(sony_a6400_gpio, 10), !key->down);
+        return;
+    default:
+        break;
+    }
+    if (front) {
+        if (key->down) {
+            sony_a6400_front_pressed |= front;
+        } else {
+            sony_a6400_front_pressed &= ~front;
+        }
+        return;
+    }
+    for (size_t i = 0; i < ARRAY_SIZE(keys); i++) {
+        if (keys[i].key != code) {
+            continue;
+        }
+        unsigned channel = keys[i].channel;
+        QKeyCode *owner = &sony_a6400_adc_owner[channel != 0];
+        if (key->down) {
+            *owner = code;
+            cxd90014_adc_set(sony_a6400_rear_adc, channel, keys[i].level);
+        } else if (*owner == code) {
+            *owner = Q_KEY_CODE_UNMAPPED;
+            cxd90014_adc_set(sony_a6400_rear_adc, channel, 1023);
+        }
+        return;
+    }
+}
+
+static const QemuInputHandler sony_a6400_rear_handler = {
+    .name = "Sony a6400 rear controls",
+    .mask = INPUT_EVENT_MASK_KEY,
+    .event = sony_a6400_rear_key,
+};
+
+static bool sony_a6400_get_rear_controls(Object *obj, Error **errp)
+{
+    return sony_a6400_rear_controls;
+}
+
+static void sony_a6400_set_rear_controls(Object *obj, bool value, Error **errp)
+{
+    sony_a6400_rear_controls = value;
+}
+static bool sony_a6400_campig_enable_readback;
+static bool sony_a6400_sgc1_event_a;
+
+/*
+ * E0568: Sgc1 input sync experiment. The 36 MHz clock is inferred from
+ * the programmed a6400 geometry and the nominal 33367 us frame period.
+ */
+#define SGC1_BASE 0xF3120000ULL
+#define SGC1_CLOCK_HZ 36000000ULL
+#define SGC1_START BIT(0)
+#define SGC1_CONTINUOUS BIT(8)
+#define SGC1_EVENT_A BIT(0)
+
+typedef enum SonySgc1Register {
+    SGC1_STATUS, SGC1_ENABLE, SGC1_CONTROL, SGC1_GEOMETRY, SGC1_COMPARE,
+    SGC1_REGISTER_COUNT,
+} SonySgc1Register;
+
+typedef struct SonySgc1 SonySgc1;
+
+typedef struct SonySgc1Word {
+    MemoryRegion mr;
+    SonySgc1 *sg;
+    SonySgc1Register reg;
+} SonySgc1Word;
+
+struct SonySgc1 {
+    SonySgc1Word words[SGC1_REGISTER_COUNT];
+    uint32_t regs[SGC1_REGISTER_COUNT];
+    QEMUTimer *timer;
+    qemu_irq irq;
+    int64_t frame_end;
+    bool compare_pending;
+};
+
+static void sony_sgc1_update_irq(SonySgc1 *sg)
+{
+    qemu_set_irq(sg->irq, (sg->regs[SGC1_STATUS] &
+                         sg->regs[SGC1_ENABLE] & SGC1_EVENT_A) != 0);
+}
+
+static void sony_sgc1_start_frame(SonySgc1 *sg, int64_t now)
+{
+    uint32_t geometry = sg->regs[SGC1_GEOMETRY];
+    uint64_t lines = ((geometry >> 16) & 0x3fff) + 1;
+    uint64_t clocks_per_line = (geometry & 0x3fff) + 1;
+    uint64_t compare = sg->regs[SGC1_COMPARE];
+
+    if (!geometry) {
+        sg->regs[SGC1_CONTROL] &= ~SGC1_START;
+        return;
+    }
+
+    sg->frame_end = now + DIV_ROUND_UP(lines * clocks_per_line *
+                                       NANOSECONDS_PER_SECOND, SGC1_CLOCK_HZ);
+    sg->compare_pending = compare < lines;
+    if (sg->compare_pending) {
+        timer_mod(sg->timer, now +
+                  DIV_ROUND_UP(compare * clocks_per_line *
+                               NANOSECONDS_PER_SECOND, SGC1_CLOCK_HZ));
+    } else {
+        timer_mod(sg->timer, sg->frame_end);
+    }
+}
+
+static void sony_sgc1_tick(void *opaque)
+{
+    SonySgc1 *sg = opaque;
+
+    if (sg->compare_pending) {
+        sg->compare_pending = false;
+        sg->regs[SGC1_STATUS] |= SGC1_EVENT_A;
+        sony_sgc1_update_irq(sg);
+        timer_mod(sg->timer, sg->frame_end);
+    } else if (sg->regs[SGC1_CONTROL] & SGC1_CONTINUOUS) {
+        sony_sgc1_start_frame(sg, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL));
+    } else {
+        sg->regs[SGC1_CONTROL] &= ~SGC1_START;
+    }
+}
+
+static uint64_t sony_sgc1_read(void *opaque, hwaddr off, unsigned size)
+{
+    SonySgc1Word *word = opaque;
+
+    return word->sg->regs[word->reg];
+}
+
+static void sony_sgc1_write(void *opaque, hwaddr off, uint64_t value,
+                             unsigned size)
+{
+    SonySgc1Word *word = opaque;
+    SonySgc1 *sg = word->sg;
+    uint32_t *reg = &sg->regs[word->reg];
+    bool running;
+
+    switch (word->reg) {
+    case SGC1_STATUS:
+        *reg &= ~(value & SGC1_EVENT_A);
+        sony_sgc1_update_irq(sg);
+        break;
+    case SGC1_ENABLE:
+        *reg = value & SGC1_EVENT_A;
+        sony_sgc1_update_irq(sg);
+        break;
+    case SGC1_CONTROL:
+        running = *reg & SGC1_START;
+        *reg = value & (SGC1_START | SGC1_CONTINUOUS);
+        if (!(*reg & SGC1_START)) {
+            timer_del(sg->timer);
+        } else if (!running) {
+            sony_sgc1_start_frame(sg, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL));
+        }
+        break;
+    case SGC1_COMPARE:
+        *reg = value & 0x3fff;
+        break;
+    case SGC1_GEOMETRY:
+        *reg = value;
+        break;
+    default:
+        g_assert_not_reached();
+    }
+}
+
+static const MemoryRegionOps sony_sgc1_ops = {
+    .read = sony_sgc1_read,
+    .write = sony_sgc1_write,
+    .endianness = DEVICE_LITTLE_ENDIAN,
+    .valid = { .min_access_size = 4, .max_access_size = 4 },
+    .impl = { .min_access_size = 4, .max_access_size = 4 },
+};
+
+static void sony_sgc1_reset(void *opaque)
+{
+    SonySgc1 *sg = opaque;
+
+    timer_del(sg->timer);
+    memset(sg->regs, 0, sizeof(sg->regs));
+    sg->compare_pending = false;
+    sony_sgc1_update_irq(sg);
+}
+
+static void sony_sgc1_create(MachineState *machine, qemu_irq irq)
+{
+    static const hwaddr offsets[SGC1_REGISTER_COUNT] = {
+        [SGC1_STATUS] = 0x48, [SGC1_ENABLE] = 0x50, [SGC1_CONTROL] = 0x210,
+        [SGC1_GEOMETRY] = 0x220, [SGC1_COMPARE] = 0x224,
+    };
+    SonySgc1 *sg = g_new0(SonySgc1, 1);
+
+    sg->irq = irq;
+    sg->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, sony_sgc1_tick, sg);
+    for (size_t i = 0; i < ARRAY_SIZE(offsets); i++) {
+        SonySgc1Word *word = &sg->words[i];
+
+        word->sg = sg;
+        word->reg = i;
+        memory_region_init_io(&word->mr, OBJECT(machine), &sony_sgc1_ops, word,
+                              "cxd90045.sgc1-event-a", 4);
+        memory_region_add_subregion_overlap(get_system_memory(),
+                                            SGC1_BASE + offsets[i],
+                                            &word->mr, -500);
+    }
+    qemu_register_reset(sony_sgc1_reset, sg);
+}
+
+static bool sony_a6400_get_sgc1_event_a(Object *obj, Error **errp)
+{
+    return sony_a6400_sgc1_event_a;
+}
+
+static void sony_a6400_set_sgc1_event_a(Object *obj, bool value, Error **errp)
+{
+    sony_a6400_sgc1_event_a = value;
+}
+
+static bool sony_a6400_get_campig_enable_readback(Object *obj, Error **errp)
+{
+    return sony_a6400_campig_enable_readback;
+}
+
+static void sony_a6400_set_campig_enable_readback(Object *obj, bool value,
+                                                Error **errp)
+{
+    sony_a6400_campig_enable_readback = value;
+}
 
 static void sony_a6400_submicro_xfer(void *opaque, int ch, uint32_t mode,
                                      uint8_t *buf, int len)
@@ -792,6 +1107,19 @@ static void sony_a6400_submicro_xfer(void *opaque, int ch, uint32_t mode,
     }
     memcpy(out, sony_a6400_sm_frames +
            (buf[0] == 0x31 ? 256 : buf[0] == 0x61 ? 128 : 0), 128);
+    if (sony_a6400_rear_controls && out[0] == 0x20 && sony_a6400_front_pressed) {
+        uint16_t crc = 0xffff;
+        out[28] |= sony_a6400_front_pressed & (BIT(1) | BIT(2));
+        out[29] &= ~(sony_a6400_front_pressed >> 8);
+        for (unsigned i = 0; i < 126; i++) {
+            crc ^= out[i] << 8;
+            for (unsigned bit = 0; bit < 8; bit++) {
+                crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : crc << 1;
+            }
+        }
+        out[126] = crc;
+        out[127] = crc >> 8;
+    }
     if (len >= 256) {
         memcpy(out + 128, sony_a6400_sm_frames + 256, 128);
     }
@@ -889,6 +1217,23 @@ static void sony_a6400_init(MachineState *machine)
      */
     create_unimplemented_device("cxd90045.unmodelled", 0xF0000000ULL,
                                 0x08000000ULL);
+    if (sony_a6400_sgc1_event_a) {
+        sony_sgc1_create(machine, pic[35 - 32]);
+    }
+
+    /*
+     * E0566: CamPig IRQ setup reads back +0x50 before setting its next
+     * enable bit. Bind only the observed word in this opt-in experiment.
+     */
+    if (sony_a6400_campig_enable_readback) {
+        DeviceState *rf = qdev_new("cxd90014-regfile");
+
+        qdev_prop_set_string(rf, "name", "cxd90045.campig-enable");
+        qdev_prop_set_uint64(rf, "size", 4);
+        qdev_prop_set_uint64(rf, "base", 0xF3000050ULL);
+        sysbus_realize_and_unref(SYS_BUS_DEVICE(rf), &error_fatal);
+        sysbus_mmio_map_overlap(SYS_BUS_DEVICE(rf), 0, 0xF3000050ULL, -500);
+    }
 
     /*
      * AudioIp (E0528): the av-cam audio driver writes and reads back plain
@@ -949,10 +1294,22 @@ static void sony_a6400_init(MachineState *machine)
         timer_mod(sony_a6400_sm_timer, 50 * SCALE_MS);
     }
 
-    /* ADC units 0/1: all channels read 1023 = every ladder key released */
+    /* ADC units 0/1: all channels start at 1023 (released). */
     for (i = 0; i < 2; i++) {
-        sysbus_create_simple("cxd90014-adc", CXD90045_ADC_BASE + i * 0x1000,
-                             pic[CXD90045_ADC_IRQ0 + i - 32]);
+        DeviceState *adc = sysbus_create_simple(
+            "cxd90014-adc", CXD90045_ADC_BASE + i * 0x1000,
+            pic[CXD90045_ADC_IRQ0 + i - 32]);
+        if (i == 1) {
+            sony_a6400_rear_adc = adc;
+        }
+    }
+    if (sony_a6400_rear_controls) {
+        MemoryRegion *counter = g_new0(MemoryRegion, 1);
+        memory_region_init_io(counter, OBJECT(machine), &sony_a6400_wheel_ops,
+                              NULL, "a6400.rear-wheel-counter", 2);
+        memory_region_add_subregion_overlap(sysmem, 0xF2404014, counter, -500);
+        qemu_input_handler_register(NULL, &sony_a6400_rear_handler);
+        qemu_register_reset(sony_a6400_rear_reset, NULL);
     }
 
     if (sony_a6400_sm_file) {
@@ -1145,6 +1502,21 @@ static void sony_a6400_machine_init(MachineClass *mc)
                                   sony_a6400_set_sm_file);
     object_class_property_set_description(OBJECT_CLASS(mc), "submicro-frames",
         "384-byte file: captured sub-micro RX slots A, C, B (E0527)");
+    object_class_property_add_bool(OBJECT_CLASS(mc), "campig-enable-readback",
+                                   sony_a6400_get_campig_enable_readback,
+                                   sony_a6400_set_campig_enable_readback);
+    object_class_property_set_description(OBJECT_CLASS(mc),
+        "campig-enable-readback", "Retain the CamPig IRQ enable word (E0566)");
+    object_class_property_add_bool(OBJECT_CLASS(mc), "sgc1-event-a",
+                                   sony_a6400_get_sgc1_event_a,
+                                   sony_a6400_set_sgc1_event_a);
+    object_class_property_set_description(OBJECT_CLASS(mc), "sgc1-event-a",
+        "Enable experimental Sgc1 input sync event A (E0568)");
+    object_class_property_add_bool(OBJECT_CLASS(mc), "rear-controls",
+                                   sony_a6400_get_rear_controls,
+                                   sony_a6400_set_rear_controls);
+    object_class_property_set_description(OBJECT_CLASS(mc), "rear-controls",
+        "Connect host keys to a6400 ADC, GPIO and sub-micro inputs");
 }
 
 DEFINE_MACHINE("sony-a6400", sony_a6400_machine_init)

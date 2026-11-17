@@ -104,6 +104,37 @@ class TimerGicModelTests(unittest.TestCase):
         self.assertEqual(machine.uc.reg_read(UC_ARM_REG_PC), 0xFFFF0018)
         self.assertEqual(machine._timer_irq_pending, 0)
 
+    def test_irq_async_abort_mask_preserves_banked_spsr(self):
+        from unicorn.arm_const import (UC_ARM_REG_CPSR, UC_ARM_REG_PC,
+                                       UC_ARM_REG_SPSR)
+
+        for interrupted_cpsr, mask_on_irq, expected_irq_cpsr in (
+            (0x80000153, False, 0xD2),
+            (0x80000153, True, 0x1D2),
+            (0x80000053, True, 0x1D2),
+        ):
+            with self.subTest(interrupted_cpsr=interrupted_cpsr, mask_on_irq=mask_on_irq):
+                machine = self.make_machine(
+                    vectors_base=STORAGE, mask_async_abort_on_irq=mask_on_irq)
+                vector = STORAGE + 0x18
+                machine.uc.mem_write(vector, struct.pack('<I', 0xE25EF004))  # subs pc, lr, #4
+                machine.uc.reg_write(UC_ARM_REG_CPSR, interrupted_cpsr)
+                machine.uc.reg_write(UC_ARM_REG_PC, machine.kernel_load)
+                machine._gic_regs[('cpu', GIC_ICCICR)] = 1
+                machine._gic_regs[('dist', 0x000)] = 1
+                machine._timer_irq_pending = 1
+
+                self.assertTrue(machine._try_inject_irq())
+                self.assertEqual(machine.uc.reg_read(UC_ARM_REG_PC), vector)
+                self.assertEqual(machine.uc.reg_read(UC_ARM_REG_CPSR), expected_irq_cpsr)
+                self.assertEqual(machine.uc.reg_read(UC_ARM_REG_SPSR), interrupted_cpsr)
+                machine.uc.emu_start(vector, machine.kernel_load, count=1)
+                self.assertEqual(machine.uc.reg_read(UC_ARM_REG_PC), machine.kernel_load)
+                # Unicorn 2.1.4 retains the live A bit on this exception
+                # return. Verify the remaining bits independently of that.
+                self.assertEqual(machine.uc.reg_read(UC_ARM_REG_CPSR) & ~0x100,
+                                 interrupted_cpsr & ~0x100)
+
     def test_irq_is_not_injected_when_masked_or_gic_disabled(self):
         from unicorn.arm_const import UC_ARM_REG_CPSR
         machine = self.make_machine()
@@ -115,6 +146,34 @@ class TimerGicModelTests(unittest.TestCase):
         machine.uc.reg_write(UC_ARM_REG_CPSR, 0x13)
         machine._gic_regs[('cpu', GIC_ICCICR)] = 0
         self.assertFalse(machine._try_inject_irq())
+
+    def test_nonsecure_af_write_policy_restores_saved_masks_on_irq_return(self):
+        from unicorn.arm_const import (UC_ARM_REG_CPSR, UC_ARM_REG_PC,
+                                       UC_ARM_REG_SPSR)
+
+        for enabled, expected_scr, expected_after_return in (
+            (False, 0x01, 0x80000153),
+            (True, 0x31, 0x80000013),
+        ):
+            with self.subTest(enabled=enabled):
+                machine = self.make_machine(
+                    vectors_base=STORAGE,
+                    mask_async_abort_on_irq=True,
+                    allow_nonsecure_af_writes=enabled)
+                self.assertEqual(machine.uc.cpr_read(15, 0, 1, 1, 0, 3, False),
+                                 expected_scr)
+                vector = STORAGE + 0x18
+                machine.uc.mem_write(vector, struct.pack('<I', 0xE25EF004))  # subs pc, lr, #4
+                machine.uc.reg_write(UC_ARM_REG_CPSR, 0x80000013)
+                machine.uc.reg_write(UC_ARM_REG_PC, machine.kernel_load)
+                machine._gic_regs[('cpu', GIC_ICCICR)] = 1
+                machine._gic_regs[('dist', 0x000)] = 1
+                machine._timer_irq_pending = 1
+                self.assertTrue(machine._try_inject_irq())
+                self.assertEqual(machine.uc.reg_read(UC_ARM_REG_SPSR), 0x80000013)
+                machine.uc.emu_start(vector, machine.kernel_load, count=1)
+                self.assertEqual(machine.uc.reg_read(UC_ARM_REG_PC), machine.kernel_load)
+                self.assertEqual(machine.uc.reg_read(UC_ARM_REG_CPSR), expected_after_return)
 
 
 if __name__ == '__main__':

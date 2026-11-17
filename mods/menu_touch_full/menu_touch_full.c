@@ -3,14 +3,19 @@
  *   plus horizontal swipe left/right for next/prev page.
  * - Popup menu (PAS_MenuListPopup): tap row to apply+close, vertical swipe to scroll,
  *   tap outside popup panel to cancel/close.
- * Linked into owned /libObj.so RX padding at 0x0700d708; state at 0x07143920.
+ * SMOD v1 build: linked into owned /libObj.so RX padding at 0x0700d708; state at 0x07143920.
+ * SMOD v2 build (-DMT_SMOD_V2): position-independent; the state lives in the loader-allocated
+ * bss after the code (__smod_bss, see tools/native_camera/mlv2/mod_v2.ld) and mt_life()
+ * initializes it after the hooks are applied and clears it before they are reverted.
  */
 #include <stdint.h>
 
 #define MT_FULL_MAGIC 0x4d544632u /* "MTF2" */
 #define MT_FULL_VERSION 2u
 #define MT_SYSTEM_ADDR 0x956f0u
+#ifndef MT_SMOD_V2
 #define MT_STATE_ADDR 0x7143920u
+#endif
 #define MT_EVENT_CAP 16u
 
 #define MT_ACT_NONE 0u
@@ -63,6 +68,14 @@ struct mt_full_state {
     uint32_t press_valid;
     struct mt_full_event events[MT_EVENT_CAP];
 };
+
+#ifdef MT_SMOD_V2
+extern uint8_t __smod_bss[] __attribute__((visibility("hidden")));
+#define MT_STATE ((volatile struct mt_full_state *)__smod_bss)
+_Static_assert(sizeof(struct mt_full_state) == 632u, "MTF2 state layout");
+#else
+#define MT_STATE ((volatile struct mt_full_state *)MT_STATE_ADDR)
+#endif
 
 extern uint32_t mt_original_release(void *, void *) __attribute__((visibility("hidden")));
 extern uint32_t mt_original_press(void *, void *) __attribute__((visibility("hidden")));
@@ -398,7 +411,7 @@ static void handle_menu_touch(volatile struct mt_full_state *s, uint32_t mouse) 
 }
 
 uint32_t mt_full_press(void *system, void *message) {
-    volatile struct mt_full_state *s = (volatile struct mt_full_state *)MT_STATE_ADDR;
+    volatile struct mt_full_state *s = MT_STATE;
     if (s->magic != MT_FULL_MAGIC || s->version != MT_FULL_VERSION) {
         return mt_original_press(system, message);
     }
@@ -422,7 +435,7 @@ uint32_t mt_full_press(void *system, void *message) {
 }
 
 uint32_t mt_full_release(void *system, void *message) {
-    volatile struct mt_full_state *s = (volatile struct mt_full_state *)MT_STATE_ADDR;
+    volatile struct mt_full_state *s = MT_STATE;
     if (s->magic != MT_FULL_MAGIC || s->version != MT_FULL_VERSION) {
         return mt_original_release(system, message);
     }
@@ -439,3 +452,28 @@ uint32_t mt_full_release(void *system, void *message) {
     __sync_fetch_and_sub(&s->inflight, 1u);
     return result;
 }
+
+#ifdef MT_SMOD_V2
+/* Mod Loader v2 lifecycle: on(1) runs after both hooks are applied, off(0) before they are
+ * reverted. Until the magic is published (and after it is cleared) both hooks only forward to
+ * the original functions. The mapping is never freed, so a thread still inside a hook after
+ * OFF keeps executing valid code. */
+void mt_life(int on) {
+    volatile struct mt_full_state *s = MT_STATE;
+    if (on) {
+        s->magic = 0u;
+        __sync_synchronize();
+        s->version = MT_FULL_VERSION;
+        s->capacity = MT_EVENT_CAP;
+        s->press_valid = 0u;
+        s->enabled = 2u;
+        __sync_synchronize();
+        s->magic = MT_FULL_MAGIC;
+    } else {
+        s->enabled = 0u;
+        __sync_synchronize();
+        s->magic = 0u;
+    }
+    __sync_synchronize();
+}
+#endif

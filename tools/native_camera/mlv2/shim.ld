@@ -4,6 +4,7 @@ SECTIONS
     . = 0x05662760;
     .text : {
         *(.text.slot)
+        *(.text.slotb)
         *(.text*)
         *(.rodata*)
         . = ALIGN(4);

@@ -1,6 +1,6 @@
 /* Mod Loader v2 guard (RAM-only): installs the v2 shim and points the three view hooks at it.
  *
- * Usage: mlv2_guard check|install|upgrade REQUEST_FILE
+ * Usage: mlv2_guard check|install|upgrade REQUEST_FILE   (or: mlv2_guard fnv FILE)
  *   check   : report hook state (stock / v1 / v2) and shim cave state; no writes
  *   install : stock hooks -> write shim, tab rectangle and hooks (fresh camera)
  *   upgrade : v1 hooks    -> write shim and redirect the hooks. The v1 code, v1 state and
@@ -8,9 +8,17 @@
  *             "menu closed" condition is needed.
  * All writes happen with every im.elf thread stopped, are read back, and roll back on error.
  *
- * Request file: "ML2Q", version 1, shim_addr, shim_size, v2 entries (set_root, refresh,
+ * Request file: "ML2Q", version 1 or 2, shim_addr, shim_size, v2 entries (set_root, refresh,
  * open_item), shim fnv, v1 build count N (1..4), N v1 entry triples (set_root, refresh,
- * open_item: one per known v1 build), then the shim bytes.
+ * open_item: one per known v1 build), then the shim bytes. Version 2 appends a relocation count
+ * and that many words (offset | kind << 30; kind 0 = libtestcmd.so, 1 = viewUnified2.so).
+ *
+ * Target: the single process whose comm is "im.elf". All addresses above are the ILCE-6400
+ * reference layout (viewUnified2.so text at 0x155e6000, libtestcmd.so at 0x05660000). The guard
+ * reads the target's maps, takes each library's base (its first mapping at file offset 0) and
+ * adds the difference to every hook, table, shim and entry address; version 2 shim words are
+ * relocated by kind. A version 1 request is accepted only when both differences are zero.
+ * The original byte checks below are unchanged, so a different library build is refused.
  * Before writing, every stopped thread's PC is checked: a thread paused inside a patched hook
  * window or the cave refuses the write (-17, retry), so no thread resumes in half-patched code.
  */
@@ -35,6 +43,9 @@
 #define RECT_TBL1_SLOT6 0x15de8a04u
 #define RECT_TBL2_SLOT6 0x15de8a84u
 #define REQ_MAGIC       0x5132484du /* "ML2Q" */
+#define REF_VIEW_BASE   0x155e6000u
+#define REF_TESTCMD_BASE 0x05660000u
+#define MAX_RELOCS      256u
 
 static const unsigned char orig_set_root[16] = {
     0x04, 0x46, 0x00, 0xaf, 0x51, 0xb1, 0x00, 0xf5, 0xc2, 0x33, 0x03, 0xf5, 0x2b, 0x73, 0x19, 0x60};
@@ -52,7 +63,10 @@ static const unsigned char patch_rect[8] = {0x15, 0x02, 0x00, 0x00, 0x5b, 0x00, 
 #else
 #define PC_INDEX 15 /* ARM r15 */
 #endif
-static char proc_dir[32] = "/proc/149";
+static char proc_dir[32];
+static uint32_t view_bias, testcmd_bias;   /* runtime base - reference base */
+#define SHIM_AT   (SHIM_ADDR + testcmd_bias)
+#define V(a)      ((uint32_t)(a) + view_bias)
 static char proc_path_buf[64];
 static const char *proc_path(const char *leaf) {
     snprintf(proc_path_buf, sizeof(proc_path_buf), "%s/%s", proc_dir, leaf);
@@ -164,7 +178,7 @@ struct patch { uint32_t addr, size; const unsigned char *from, *to; };
 /* ARM user_regs: r0..r15, cpsr, orig_r0. Refuse when a thread is paused strictly inside a hook
  * window (its first instruction is fine: it then executes the new branch) or inside the cave. */
 static int pcs_clear(void) {
-    static const uint32_t win[4][2] = {{HOOK_SET_ROOT, 16}, {HOOK_REFRESH, 16}, {HOOK_OPEN_ITEM, 12}, {SHIM_ADDR, SHIM_CAP}};
+    const uint32_t win[4][2] = {{V(HOOK_SET_ROOT), 16}, {V(HOOK_REFRESH), 16}, {V(HOOK_OPEN_ITEM), 12}, {SHIM_AT, SHIM_CAP}};
     for (unsigned i = 0; i < tid_count; i++) {
         unsigned long regs[64];
         if (ptrace(PTRACE_GETREGS, tids[i], 0, regs)) return -17;
@@ -180,35 +194,111 @@ static int pcs_clear(void) {
     return 0;
 }
 
-static int maps_ok(void) {
+/* Library base = start of its first mapping at file offset 0. Returns 0 if missing. */
+static uint32_t lib_base(const char *leaf) {
     FILE *f = fopen(proc_path("maps"), "r");
     if (!f) return 0;
-    char line[256], perms[5];
-    unsigned lo, hi;
-    int cave = 0, view = 0;
-    while (fgets(line, sizeof(line), f)) {
-        if (sscanf(line, "%x-%x %4s", &lo, &hi, perms) != 3) continue;
-        if (lo <= SHIM_ADDR && SHIM_ADDR + SHIM_CAP <= hi && strstr(line, "/libtestcmd.so")) cave = 1;
-        if (lo <= HOOK_SET_ROOT && HOOK_OPEN_ITEM + 16 <= hi && strstr(line, "/viewUnified2.so")) view = 1;
+    char line[512];
+    unsigned lo, hi, off;
+    uint32_t base = 0;
+    size_t n = strlen(leaf);
+    while (!base && fgets(line, sizeof(line), f)) {
+        size_t len = strcspn(line, "\n");
+        line[len] = 0;
+        if (sscanf(line, "%x-%x %*4s %x", &lo, &hi, &off) == 3 && !off && len > n &&
+            !strcmp(line + len - n, leaf) && line[len - n - 1] == '/')
+            base = lo;
     }
     fclose(f);
-    return cave && view;
+    return base;
+}
+
+/* Is [a, a + n) inside one mapping of the named library (readable and executable if perm is set)? */
+static int mapped(uint32_t a, uint32_t n, const char *leaf, const char *perm) {
+    FILE *f = fopen(proc_path("maps"), "r");
+    if (!f) return 0;
+    char line[512], perms[5];
+    unsigned lo, hi;
+    int ok = 0;
+    while (!ok && fgets(line, sizeof(line), f))
+        if (sscanf(line, "%x-%x %4s", &lo, &hi, perms) == 3 && lo <= a && a + n <= hi &&
+            (!*perm || (perms[0] == 'r' && perms[2] == 'x')) && strstr(line, leaf)) ok = 1;
+    fclose(f);
+    return ok;
+}
+
+/* Select the single im.elf process and compute the library differences. */
+static int find_target(void) {
+#ifdef MLV2_HOST_TEST
+    if (!getenv("MLV2_PID")) return -1;
+    snprintf(proc_dir, sizeof(proc_dir), "/proc/%s", getenv("MLV2_PID"));
+#else
+    DIR *d = opendir("/proc");
+    struct dirent *e;
+    int found = 0;
+    if (!d) return -1;
+    while ((e = readdir(d))) {
+        char *end, path[64], comm[32] = {0};
+        long id = strtol(e->d_name, &end, 10);
+        if (!*e->d_name || *end || id <= 0) continue;
+        snprintf(path, sizeof(path), "/proc/%ld/comm", id);
+        FILE *f = fopen(path, "r");
+        if (!f) continue;
+        if (fgets(comm, sizeof(comm), f) && !strcmp(comm, "im.elf\n")) {
+            found++;
+            snprintf(proc_dir, sizeof(proc_dir), "/proc/%ld", id);
+        }
+        fclose(f);
+    }
+    closedir(d);
+    if (found != 1) return -1;
+#endif
+    char comm[32] = {0};
+    FILE *f = fopen(proc_path("comm"), "r");
+    int is_im = f && fgets(comm, sizeof(comm), f) && !strcmp(comm, "im.elf\n");
+    if (f) fclose(f);
+    uint32_t vb = lib_base("viewUnified2.so"), tb = lib_base("libtestcmd.so");
+    if (!is_im || !vb || !tb) return -1;
+    view_bias = vb - REF_VIEW_BASE;
+    testcmd_bias = tb - REF_TESTCMD_BASE;
+    return 0;
+}
+
+static int maps_ok(void) {
+    return mapped(SHIM_AT, SHIM_CAP, "/libtestcmd.so", "x") &&
+           mapped(V(HOOK_SET_ROOT), V(HOOK_OPEN_ITEM) + 16 - V(HOOK_SET_ROOT), "/viewUnified2.so", "x") &&
+           mapped(V(RECT_TBL1_SLOT6), V(RECT_TBL2_SLOT6) + 8 - V(RECT_TBL1_SLOT6), "/viewUnified2.so", "");
+}
+
+/* "fnv FILE": size and FNV-1a of a file, for checking transfers on guests without hash tools. */
+static int file_fnv(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) { printf("FNV missing\n"); return 6; }
+    uint32_t h = 2166136261u, size = 0;
+    int c;
+    while ((c = fgetc(f)) != EOF) { h = (h ^ (uint32_t)c) * 16777619u; size++; }
+    fclose(f);
+    printf("FNV size=%u fnv=%08x\n", size, h);
+    return 0;
 }
 
 int main(int argc, char **argv) {
+    if (argc == 3 && !strcmp(argv[1], "fnv")) return file_fnv(argv[2]);
     int op = argc == 3 ? (!strcmp(argv[1], "check") ? 0 : !strcmp(argv[1], "install") ? 1 :
                           !strcmp(argv[1], "upgrade") ? 2 : -1) : -1;
     if (op < 0) { fprintf(stderr, "usage: mlv2_guard check|install|upgrade REQUEST\n"); return 2; }
-#ifdef MLV2_HOST_TEST
-    if (!getenv("MLV2_PID")) return 2;
-    snprintf(proc_dir, sizeof(proc_dir), "/proc/%s", getenv("MLV2_PID"));
-#endif
-    uint32_t h[9], v1[4][3];
+    uint32_t h[9], v1[4][3], nrel = 0, rel[MAX_RELOCS];
     FILE *f = fopen(argv[2], "rb");
-    if (!f || fread(h, 4, 9, f) != 9 || h[0] != REQ_MAGIC || h[1] != 1u || h[2] != SHIM_ADDR ||
-        !h[3] || h[3] > SHIM_CAP || (h[3] & 3u) || !h[8] || h[8] > 4u || fread(v1, 12, h[8], f) != h[8] ||
-        fread(shim, 1, h[3], f) != h[3] || fgetc(f) != EOF ||
-        fnv(shim, h[3]) != h[7] || memcmp(shim, zeros, 4)) {
+    int ok = f && fread(h, 4, 9, f) == 9 && h[0] == REQ_MAGIC && (h[1] == 1u || h[1] == 2u) && h[2] == SHIM_ADDR &&
+        h[3] && h[3] <= SHIM_CAP && !(h[3] & 3u) && h[8] && h[8] <= 4u && fread(v1, 12, h[8], f) == h[8] &&
+        fread(shim, 1, h[3], f) == h[3];
+    if (ok && h[1] == 2u)
+        ok = fread(&nrel, 4, 1, f) == 1 && nrel <= MAX_RELOCS && fread(rel, 4, nrel, f) == nrel;
+    for (uint32_t i = 0; ok && i < nrel; i++) {
+        uint32_t off = rel[i] & 0x3fffffffu;
+        ok = off >= 4u && off + 4u <= h[3] && !(off & 3u) && (rel[i] >> 30) <= 1u;
+    }
+    if (!ok || fgetc(f) != EOF || fnv(shim, h[3]) != h[7] || memcmp(shim, zeros, 4)) {
         if (f) fclose(f);
         printf("MLV2_RESULT=-3 request invalid\n");
         return 3;
@@ -216,11 +306,18 @@ int main(int argc, char **argv) {
     fclose(f);
     for (int i = 4; i < 7; i++)
         if (!(h[i] & 1u) || h[i] < SHIM_ADDR || h[i] >= SHIM_ADDR + h[3]) { printf("MLV2_RESULT=-3 entries\n"); return 3; }
-    char comm[32] = {0};
-    f = fopen(proc_path("comm"), "r");
-    int is_im = f && fgets(comm, sizeof(comm), f) && !strcmp(comm, "im.elf\n");
-    if (f) fclose(f);
-    if (!is_im || !maps_ok()) { printf("MLV2_RESULT=-5 identity/maps\n"); return 5; }
+    if (find_target() || !maps_ok() || (h[1] == 1u && (view_bias || testcmd_bias))) {
+        printf("MLV2_RESULT=-5 identity/maps\n");
+        return 5;
+    }
+    printf("TARGET %s view_bias=%08x testcmd_bias=%08x\n", proc_dir, view_bias, testcmd_bias);
+    for (uint32_t i = 0; i < nrel; i++) {
+        uint32_t off = rel[i] & 0x3fffffffu, w;
+        memcpy(&w, shim + off, 4);
+        w += (rel[i] >> 30) ? view_bias : testcmd_bias;
+        memcpy(shim + off, &w, 4);
+    }
+    for (int i = 4; i < 7; i++) h[i] += testcmd_bias;
 
     unsigned char v2_sr[16], v2_rf[16], v2_oi[12], v1_sr[16], v1_rf[16], v1_oi[12];
     branches(h[4], h[5], h[6], v2_sr, v2_rf, v2_oi);
@@ -231,9 +328,9 @@ int main(int argc, char **argv) {
     if (op && (result = freeze())) { close(fd); printf("MLV2_RESULT=%d freeze\n", result); return 1; }
 
     unsigned char cur_sr[16], cur_rf[16], cur_oi[12], cur_rect1[8], cur_rect2[8];
-    if (readmem(fd, HOOK_SET_ROOT, cur_sr, 16) || readmem(fd, HOOK_REFRESH, cur_rf, 16) ||
-        readmem(fd, HOOK_OPEN_ITEM, cur_oi, 12) || readmem(fd, RECT_TBL1_SLOT6, cur_rect1, 8) ||
-        readmem(fd, RECT_TBL2_SLOT6, cur_rect2, 8) || readmem(fd, SHIM_ADDR, buffer, h[3])) { result = -11; goto done; }
+    if (readmem(fd, V(HOOK_SET_ROOT), cur_sr, 16) || readmem(fd, V(HOOK_REFRESH), cur_rf, 16) ||
+        readmem(fd, V(HOOK_OPEN_ITEM), cur_oi, 12) || readmem(fd, V(RECT_TBL1_SLOT6), cur_rect1, 8) ||
+        readmem(fd, V(RECT_TBL2_SLOT6), cur_rect2, 8) || readmem(fd, SHIM_AT, buffer, h[3])) { result = -11; goto done; }
     const char *state = !memcmp(cur_sr, orig_set_root, 16) && !memcmp(cur_rf, orig_refresh, 16) && !memcmp(cur_oi, orig_open_item, 12) ? "stock"
                       : !memcmp(cur_sr, v2_sr, 16) && !memcmp(cur_rf, v2_rf, 16) && !memcmp(cur_oi, v2_oi, 12) ? "v2" : "unknown";
     int v1_build = -1;
@@ -252,12 +349,12 @@ int main(int argc, char **argv) {
     if ((result = pcs_clear())) goto done;
 
     struct patch plan[6] = {
-        {SHIM_ADDR, h[3], zeros, shim},
-        {RECT_TBL1_SLOT6, 8, rect_from, patch_rect},
-        {RECT_TBL2_SLOT6, 8, rect_from, patch_rect},
-        {HOOK_SET_ROOT, 16, op == 1 ? orig_set_root : v1_sr, v2_sr},
-        {HOOK_REFRESH, 16, op == 1 ? orig_refresh : v1_rf, v2_rf},
-        {HOOK_OPEN_ITEM, 12, op == 1 ? orig_open_item : v1_oi, v2_oi},
+        {SHIM_AT, h[3], zeros, shim},
+        {V(RECT_TBL1_SLOT6), 8, rect_from, patch_rect},
+        {V(RECT_TBL2_SLOT6), 8, rect_from, patch_rect},
+        {V(HOOK_SET_ROOT), 16, op == 1 ? orig_set_root : v1_sr, v2_sr},
+        {V(HOOK_REFRESH), 16, op == 1 ? orig_refresh : v1_rf, v2_rf},
+        {V(HOOK_OPEN_ITEM), 12, op == 1 ? orig_open_item : v1_oi, v2_oi},
     };
     for (unsigned i = 0; i < 6; i++) {
         if (poke(plan[i].addr, plan[i].to, plan[i].size) || readmem(fd, plan[i].addr, buffer, plan[i].size) ||
@@ -271,7 +368,7 @@ int main(int argc, char **argv) {
     }
     changed = 1;
     printf("%s shim=%08x..%08x hooks=%08x,%08x,%08x\n", op == 1 ? "INSTALLED" : "UPGRADED",
-           SHIM_ADDR, SHIM_ADDR + h[3], h[4], h[5], h[6]);
+           SHIM_AT, SHIM_AT + h[3], h[4], h[5], h[6]);
 done:
     if (op) { int r = resume(); if (!result) result = r; }
     close(fd);

@@ -1,4 +1,4 @@
-/* Mod Loader v2 shim: fixed-address code in the libtestcmd.so cave (see mlv2.h).
+/* Mod Loader v2 shim: code in the libtestcmd.so cave (see mlv2.h), relocated by the guard.
  *
  * The three view hooks (mlv2_trampoline.S) land here. The shim keeps a ShimState in mmap
  * memory (pointer in the first word of the cave) and loads the core from MLV2_CORE_PATH.
@@ -10,17 +10,30 @@
 #include "mlv2_sys.h"
 
 __attribute__((section(".text.slot"), used)) const volatile uint32_t mlv2_slot = 0;
+/* Both words move with their base when the guard relocates the shim (package.py records them). */
+__attribute__((section(".text.slotb"), used)) const volatile uint32_t mlv2_view_bias = MLV2_VIEW_BASE - MLV2_REF_VIEW_BASE;
+__attribute__((section(".text.slotb"), used)) const volatile uint32_t mlv2_testcmd_bias = MLV2_SHIM_ADDR - MLV2_REF_SHIM_ADDR;
 
 static ShimState *shim_state(int create) {
     volatile uint32_t *slot = (volatile uint32_t *)MLV2_SHIM_SLOT;
     ShimState *s = (ShimState *)*slot;
-    if (s && s->magic == MLV2_SHIM_MAGIC) return s;
+    if (s && s->magic == MLV2_SHIM_MAGIC) {
+        if (s->layout_magic != MLV2_LAYOUT_MAGIC) {      /* state from an older shim */
+            s->view_bias = mlv2_view_bias;
+            s->testcmd_bias = mlv2_testcmd_bias;
+            s->layout_magic = MLV2_LAYOUT_MAGIC;
+        }
+        return s;
+    }
     if (!create) return 0;
     uint32_t m = ml_mmap_rwx(4096u);
     if (!m || ml_make_rwx(MLV2_SHIM_SLOT, 4u) < 0) return 0;
     s = (ShimState *)m;
     ml_memset(s, 0, sizeof(*s));
     s->magic = MLV2_SHIM_MAGIC;
+    s->view_bias = mlv2_view_bias;
+    s->testcmd_bias = mlv2_testcmd_bias;
+    s->layout_magic = MLV2_LAYOUT_MAGIC;
     *slot = m;
     return s;
 }

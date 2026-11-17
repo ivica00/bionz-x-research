@@ -10,9 +10,14 @@ common=(-mthumb -mcpu=cortex-a5 -mfloat-abi=softfp -Os -ffreestanding -fno-built
         -nostartfiles -fno-stack-protector -fomit-frame-pointer -Wall -Wextra -Werror
         -Wno-unused-parameter)
 
-# Shim: fixed address in the cave.
+# Shim: linked at the reference cave address. A second link moves the shim by 0x1000 and the
+# viewUnified2.so base by 0x10000; package.py diffs the two images to record the relocations.
 "$CC" "${common[@]}" -fno-pic -Wl,--build-id=none -T "$D/shim.ld" \
     "$D/shim.c" "$D/mlv2_trampoline.S" -o "$OUT/shim.elf"
+sed -e 's/0x05662760/0x05663760/' -e 's/0x05663000/0x05664000/' "$D/shim.ld" > "$OUT/shim-reloc.ld"
+"$CC" "${common[@]}" -fno-pic -Wl,--build-id=none -T "$OUT/shim-reloc.ld" \
+    -DMLV2_SHIM_ADDR=0x05663760u -DMLV2_VIEW_BASE=0x155f6000u \
+    "$D/shim.c" "$D/mlv2_trampoline.S" -o "$OUT/shim-reloc.elf"
 
 # Core: position-independent. Compile to an object first and reject absolute relocations.
 "$CC" "${common[@]}" -fpie -fvisibility=hidden -c "$D/core.c" -o "$OUT/core.o"

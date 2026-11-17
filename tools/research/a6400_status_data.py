@@ -220,25 +220,38 @@ STATUS_SNAPSHOT = StatusSnapshot(
     schema_version=1,
     as_of="2026-11-17",
     latest=EvidenceRef(
-        evidence_id="E0570",
-        path="docs/evidence/0570-ilce-7rm4a-offline-sourced-profile.md",
+        evidence_id="E0577",
+        path="docs/evidence/0577-qemu-real-mods-relocation-and-hot-reload.md",
         date="2026-11-17",
-        title="ILCE-7RM4A gains a sourced reference profile",
+        title="Real mods and hot reload in the QEMU Sony menu",
         demonstrated=(
-            "The a7R IVA row of the E0477 platform map is a registered reference profile, "
-            "sourced only from that body's packaged 1.13 updater. Seven gadget-core symbols "
-            "are decoded from its own vmlinux.bin, with a CXD90045 identity, an 18-pair stock "
-            "USB set, and an 88-entry devno table that publishes no usb/video or usb/audio node."
+            "Mod Loader v2 loads, hot-reloads and unloads the camera MenuTouchFull build in QEMU."
         ),
         boundary=(
-            "Offline packaged firmware only. No camera, USB, boot, or live dump is claimed. "
-            "The kernel addresses are not the a6400's, and ilce_7rm4a is not an execution target. "
-            "The E0554 A6400A dispatch map and the QEMU module 1 latch remain as recorded."
+            "Touch handlers not exercised in QEMU; the relocating loader has not run on the camera."
         ),
-        tier="OFFLINE",
+        tier="OFFLINE QEMU",
     ),
-    headline="1972 offline suite cases | A6400A GET_FILE is halfword 8 | QEMU module 1 latch still skips 0x0105",
+    headline="1992 offline suite cases | Thumb loader prefix matches QEMU | BusyBox prompt",
     cards=(
+        EvidenceRef(
+            evidence_id="E0570",
+            path="docs/evidence/0570-ilce-7rm4a-offline-sourced-profile.md",
+            date="2026-11-17",
+            title="ILCE-7RM4A gains a sourced reference profile",
+            demonstrated=(
+                "The a7R IVA row of the E0477 platform map is a registered reference profile, "
+                "sourced only from that body's packaged 1.13 updater. Seven gadget-core symbols "
+                "are decoded from its own vmlinux.bin, with a CXD90045 identity, an 18-pair stock "
+                "USB set, and an 88-entry devno table that publishes no usb/video or usb/audio node."
+            ),
+            boundary=(
+                "Offline packaged firmware only. No camera, USB, boot, or live dump is claimed. "
+                "The kernel addresses are not the a6400's, and ilce_7rm4a is not an execution target. "
+                "The E0554 A6400A dispatch map and the QEMU module 1 latch remain as recorded."
+            ),
+            tier="OFFLINE",
+        ),
         EvidenceRef(
             evidence_id="E0554",
             path="docs/evidence/0554-a6400a-v101-jiritsu-command-dispatch.md",
@@ -572,9 +585,9 @@ STATUS_SNAPSHOT = StatusSnapshot(
         ),
     ),
     suite=SuiteRecord(
-        test_count=1972,
+        test_count=1992,
         recorded_at="2026-11-17",
-        evidence_id="E0553",
+        evidence_id="E0577",
         command="python -m unittest discover -s tests -q",
     ),
     footer=(
@@ -1026,7 +1039,7 @@ DAILY_TEST_HISTORY: tuple[DailyTestPoint, ...] = (
     DailyTestPoint("2026-11-14", 1895, 168, "E0510", "BusyBox ash shell, A5KU & UI boot"),
     DailyTestPoint("2026-11-15", 1903, 8, "E0523", "MTF2 touch mod, guarded Mod Loader & QEMU a6400 boot/SMP"),
     DailyTestPoint("2026-11-16", 1905, 2, "E0524", "Captured QEMU boot inputs, eMMC addressing & qualified LIRO waits"),
-    DailyTestPoint("2026-11-17", 1972, 67, "E0554", "A6400A GET_FILE is halfword 8; QEMU latch still skips 0x0105"),
+    DailyTestPoint("2026-11-17", 1992, 87, "E0577", "QEMU Ydet boundary, mod reload and QEMU mod hot reload"),
 )
 
 

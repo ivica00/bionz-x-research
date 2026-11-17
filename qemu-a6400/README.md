@@ -46,6 +46,39 @@ Verify the machine registers cleanly:
 ./qemu/build/qemu-system-arm -M help | grep sony-a6400
 ```
 
+## Interactive rear panel
+
+On this Windows workstation, double-click `a6400_QEMU.bat` on the
+Desktop. It starts the emulator and opens the panel in the default
+browser at `http://127.0.0.1:8641/`. With prepared camera inputs and a
+layout-aware loader build present it starts in mod-development mode, and
+the page toolbar loads, watches and hot-reloads mods and pauses, resumes
+or restarts the emulator (see [MOD_DEVELOPMENT.md](MOD_DEVELOPMENT.md)). Running it while the panel is
+already open reuses that instance. The LCD starts displaying when
+firmware publishes its first frame.
+
+Rebuild QEMU with the current board overlay. From the repository root in WSL,
+start a new run with a fresh log path:
+
+```bash
+EVSEL_LATE_US=500 python3 qemu-a6400/tools/rear_panel.py --log a6400-panel.log
+```
+
+Open [the local rear panel](http://127.0.0.1:8640/). The image is QEMU's
+VPH output. The buttons drive the emulated ADC ladders, GPIO lines or
+sub-micro link. Hover over the control wheel and scroll to rotate it, or
+use `[` and `]`. Press Ctrl+C in the launch terminal to stop the local run.
+
+The panel enables the [E0572](../docs/evidence/0572-qemu-a6400-rear-lcd-layout-on-panel.md)
+LCD selection on the disposable overlay. Use `--stock` to exercise the
+original display selection. `A6400_QEMU_DIR` can point at an alternate
+QEMU build. This workflow uses the emulator's eMMC copy.
+
+For the guarded ARM mod workflow (camera-captured inputs, Mod Loader v2 install and mod hot reload
+with `--inputs`, `--loader` and `--mod`), see [Developing camera mods in QEMU](MOD_DEVELOPMENT.md).
+Prepared inputs read from `/mnt/c` slow every guest disk access. The panel's `--inputs` copies them
+to the Linux filesystem once (boot to the menu 63 s → 35 s, E0577).
+
 ## Milestone 2: Main firmware boot (E0521)
 
 ### Rebuild inputs from a local camera capture
@@ -170,6 +203,22 @@ workflow. The device work below uses the same boot.
 replay a captured sub-micro page (E0527). Set `ULOGIO=` or `SUBMICRO_PAGE=` empty
 to skip either one. The default `ULOGIO` path is a local ZV-E10 stand-in, not an
 a6400 capture.
+
+The overlay staging supports `RUN_DIR` paths with spaces. For panel captures,
+target VPH head 0 with `screendump /path/panel.ppm vph 0`. VPH head 1 is the
+separate HDMI output.
+
+`CAMPIG_ENABLE_READBACK=1` enables the experimental CamPig IRQ enable word
+at `0xF3000050` (`-M sony-a6400,campig-enable-readback=on`). It latches the
+last value written and resets to zero. The firmware uses a read-modify-write
+to enable paths 3 and 2. This option covers the enable word; frame completion
+and statistics are still separate research boundaries.
+
+`SGC1_EVENT_A=1` enables the experimental input synchronizer event A
+(`-M sony-a6400,sgc1-event-a=on`). It schedules the programmed line compare
+on the virtual clock, using a 36 MHz source inferred in E0568. Event A
+latches status bit 0 and, when enabled, raises IRQ 35. The experiment
+covers the input event and leaves CamPig IRQ 36 and Ydet data unmodelled.
 
 `tools/a6400_probe.py` boots, waits until a checkpoint appears in
 `/proc/snsc_boot_time`, runs shell commands, and stops QEMU.

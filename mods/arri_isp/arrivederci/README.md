@@ -1,11 +1,11 @@
 # Arrivederci — ARRI Classic look mod
 
-**Status: functional (verified on the camera, 2026-11-16).** With PP Gamma S-Log3 and Color
+**Status: usable as part of modset v2 (2026-11-17; Mod Loader v2, fitted Classic matrix, E0556).** Earlier status: functional (verified on the camera, 2026-11-16). With PP Gamma S-Log3 and Color
 Mode S-Gamut3.Cine:
 
 | Mode | Tone curve | Color matrix |
 | --- | --- | --- |
-| Movie | Yes | Yes, after one Color Mode round trip (selector index 23 → entry B8) |
+| Movie | Yes | Yes (selector index 23 → entry B8). Toggled from the Mods tab under Mod Loader v2, it applies when you leave the menu; no Color Mode round trip ([E0555](../../../docs/evidence/0555-arrivederci-menu-exit-recompute-and-cc8-refill.md)) |
 | Photo | Yes | No: photo mode keeps index 0 (entry A0) for every Color Mode, so A0 is not patched |
 
 A copy is on the SD card as `E:\mods\Arrivederci.mod` (hash verified), with a status note
@@ -26,6 +26,18 @@ the ARRI data is present. Anything else is left untouched. Because both checks c
 OFF also works in a later boot. Each toggle appends `arrivederci on=N gamma=C color=C` to
 `/tmp_bt/mods/arrivederci.log` (`w` written, `a` already in place, `x` unknown content left
 alone, `v` verify failed).
+
+## Mod Loader v2 (2026-11-17)
+
+The SMOD v2 build (`build_v2_wsl.sh`, `Arrivederci.mod` 1424 B, SHA-256 `90dc6290…eaf3`) was
+staged in `/tmp_bt/mods` beside a RAM-resident v2 core. ON and OFF from the Mods tab, followed by
+leaving the menu, switched tone and color in both directions without a Color Mode change. B8,
+both CC live copies and record 31 read back as expected (E0555). The color matrix is still
+backup-backed, so turn Arrivederci **OFF before power-off**. The SD package does not ship it.
+
+## Fitted Classic matrix (2026-11-17)
+
+`fit_matrix.py` refits B8 against the official ARRI LogC3 Classic LUT. It models the camera order: matrix, then the tested record-31 curve, then 8 bits. `build_v3_wsl.sh` builds it, and ON/OFF also recognize the previous matrix (`color=l`). Fitted Q10 matrix `[[1698,-670,-4],[-105,1408,-279],[90,-478,1412]]`. In the model, skin ΔE00 goes from 1.20 to 0.58 and saturated highlights from 11.5 to 4.7. Build `artifacts/tests/arrivederci-v3-build-1` (`Arrivederci.mod` 1516 B, SHA-256 `c09693b8…a88a`) ran on the camera; see [E0556](../../../docs/evidence/0556-arrivederci-classic-fitted-matrix.md).
 
 ## Color matrix persistence (reversible, by design)
 

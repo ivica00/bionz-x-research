@@ -55,6 +55,26 @@ python3 -m tools.research.thumb_boundary artifacts/analysis/thumb-unicorn-01/boo
   --window loader --seconds 45 --output artifacts/analysis/thumb-compare-01
 ```
 
+To replay the async-abort mask observed at QEMU kernel entry in E0548, add
+`--mask-async-abort-at-entry` to the Unicorn command. The report records
+`entry_cpsr` as `0x000001d3` with this option and `0x000000d3` by default.
+This option initializes CPSR.A once at handoff. Asynchronous abort delivery
+is outside the scope of this experiment.
+
+Add `--mask-async-abort-on-irq` to replay the A bit of QEMU's AArch32 IRQ
+entry separately. E0559 uses both options and compares the return window
+with the archived QEMU sample.
+
+E0560 also enables `--allow-nonsecure-af-writes` on the Unicorn Cortex-A9.
+This sets SCR.AW/FW so the guest can restore the saved CPSR.A/F values.
+With all three options the 16-row return window matches the fresh QEMU
+reference for the ILCE-6400 updater.
+
+Use `--thumb-stop user-loader` in Unicorn and `--stop user-loader` in
+`thumb_boundary` for E0562. This records a short instruction prefix from the
+observed Thumb entry, with 224 bytes of initial stack. Relative instruction
+offsets and stack observations accompany the raw register difference.
+
 Name the question with `--stop` instead of adding a window:
 
 - `--stop pc:0x6010DF34` is the return window. `--window return` remains that stop.

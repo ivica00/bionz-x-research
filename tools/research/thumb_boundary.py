@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import gzip
 import hashlib
+import inspect
 import json
 import os
 import re
@@ -26,6 +27,9 @@ KERNEL_IMAGE_BYTES = 3581952
 USER_RETURN_MSR = 0x6010DF50
 USER_RETURN_MOVS = 0x6010DF64
 MAX_ROWS = 16
+USER_LOADER_ROWS = 8
+USER_LOADER_SPAN = 64
+USER_STACK_BYTES = 224
 REGISTERS = tuple(f'r{i}' for i in range(13)) + ('sp', 'lr', 'cpsr')
 # Architectural CPSR bits a difference report can name. The low five bits are the mode.
 CPSR_BITS = ((31, 'N'), (30, 'Z'), (29, 'C'), (28, 'V'), (27, 'Q'),
@@ -70,10 +74,10 @@ def checkpoint_usable(record, identity, qemu_sha256, cmdline, pc=None):
 
 
 def parse_stop(value):
-    """A probe stop: user-return, kernel-entry, or pc:ADDRESS."""
-    if value == 'user-return':
-        return {'kind': 'user-return', 'name': 'user-return', 'user_only': True,
-                'limit': 1, 'mmu_off': False}
+    """A probe stop: user-return, user-loader, kernel-entry, or pc:ADDRESS."""
+    if value in ('user-return', 'user-loader'):
+        return {'kind': 'user-return', 'name': value, 'user_only': True,
+                'limit': USER_LOADER_ROWS if value == 'user-loader' else 1, 'mmu_off': False}
     if value == 'kernel-entry':
         return {'kind': 'pc', 'pc': KERNEL_ENTRY_PC, 'end': KERNEL_ENTRY_PC + 4,
                 'name': 'kernel-entry', 'user_only': False, 'limit': 1, 'mmu_off': True}
@@ -92,7 +96,7 @@ def parse_stop(value):
         return {'kind': 'pc', 'pc': pc, 'end': pc + 4, 'name': f'pc:0x{pc:08x}',
                 'user_only': not physical and pc < 0x60000000,
                 'limit': 1, 'mmu_off': physical}
-    raise argparse.ArgumentTypeError('Expected user-return, kernel-entry, or pc:ADDRESS')
+    raise argparse.ArgumentTypeError('Expected user-return, user-loader, kernel-entry, or pc:ADDRESS')
 
 
 def stop_from_window(window, loader_entry=None):
@@ -153,6 +157,24 @@ def physical_address(vaddr, ttbr0, read_word, mmu_off=False):
     if 0x60000000 <= vaddr < 0x80000000:
         return vaddr - 0x60000000
     return walk_short_descriptor(vaddr, ttbr0, read_word)
+
+
+def read_user_sample(address, size, translate, read):
+    """Read a bounded user virtual range via the first guest RAM bank."""
+    if not 0x1000 <= address < address + size <= 0x60000000:
+        raise ValueError('sample outside guest userspace')
+    data = bytearray()
+    while len(data) < size:
+        virtual = address + len(data)
+        length = min(size - len(data), 0x1000 - (virtual & 0xfff))
+        physical = translate(virtual)
+        if physical is None or not 0 <= physical < physical + length <= 0x40000000:
+            raise ValueError(f'no first-bank RAM translation for {virtual:#x}')
+        piece = read(physical, length)
+        if len(piece) != length:
+            raise ValueError(f'short physical read at {physical:#x}')
+        data.extend(piece)
+    return bytes(data)
 
 
 def parse_xp_word(text):
@@ -222,16 +244,33 @@ def capture_unicorn(machine, loader_entry=None, stops=None):
             continue
         rows = windows[name] = []
         if stop['kind'] == 'user-return':
-            bounds[name] = ['user-return']
+            bounds[name] = [name]
             seen = {'done': False}
 
-            def user_return(uc, pc, size, _, rows=rows, seen=seen):
+            def user_return(uc, pc, size, _, rows=rows, seen=seen, name=name,
+                            limit=stop['limit']):
                 if seen['done']:
                     return
-                if (uc.reg_read(registers['cpsr']) & 0x1f) != 0x10:
+                cpsr = uc.reg_read(registers['cpsr'])
+                if (cpsr & 0x1f) != 0x10:
                     return
-                seen['done'] = True
-                record(uc, pc, size, rows, None, True)
+                if name == 'user-return':
+                    seen['done'] = True
+                    record(uc, pc, size, rows, None, True)
+                    return
+                entry = rows[0]['pc'] if rows else pc
+                if not (cpsr & 0x20 and entry <= pc < entry + USER_LOADER_SPAN):
+                    seen['done'] = True
+                    return
+                record(uc, pc, size, rows, entry, True)
+                if len(rows) == 1:
+                    sp = rows[0]['state']['sp']
+                    try:
+                        rows[0]['stack_bytes'] = read_user_sample(
+                            sp, USER_STACK_BYTES, machine._translate_virtual, uc.mem_read).hex()
+                    except (UcError, ValueError) as error:
+                        rows[0]['stack_error'] = str(error)
+                seen['done'] = len(rows) >= limit
 
             machine.uc.hook_add(UC_HOOK_CODE, user_return, begin=0x1000, end=0x5fffffff)
             continue
@@ -261,6 +300,38 @@ def compare(unicorn, qemu, window):
                     unicorn=u_bounds, qemu=q_bounds)
     left = unicorn['windows']['rows'].get(window, [])
     right = qemu['windows']['rows'].get(window, [])
+    result = compare_rows(left, right, window, unicorn['stop'], qemu['stop'])
+    if window == 'user-loader' and left and right:
+        result['loader'] = compare_loader_samples(left, right)
+    return result
+
+
+def compare_loader_samples(left, right):
+    """Keep raw CPU differences and separately compare the observed byte ranges."""
+    matching = 0
+    for u, q in zip(left, right):
+        if not u.get('bytes') or u['offset'] != q['offset'] or u['bytes'] != q.get('bytes'):
+            break
+        matching += 1
+    entries = {}
+    stacks = []
+    for name, rows in (('unicorn', left), ('qemu', right)):
+        entry = rows[0]
+        state = entry['state']
+        data = bytes.fromhex(entry.get('stack_bytes', ''))
+        stacks.append(data)
+        entries[name] = dict(pc=entry['pc'], sp=state['sp'],
+                             r1_from_sp=state['r1'] - state['sp'],
+                             rows=len(rows), stack_bytes=len(data),
+                             stack_error=entry.get('stack_error'))
+    shared = min(map(len, stacks))
+    first = next((offset for offset in range(shared)
+                  if stacks[0][offset] != stacks[1][offset]), None)
+    return dict(matching_instruction_samples=matching, entries=entries,
+                compared_stack_bytes=shared, first_stack_difference=first)
+
+
+def compare_rows(left, right, window, unicorn_stop, qemu_stop):
     for index, (u, q) in enumerate(zip(left, right)):
         if index and u['offset'] != q['offset']:
             return difference(index, 'instruction_path', u, q)
@@ -282,7 +353,7 @@ def compare(unicorn, qemu, window):
     result = dict(status='matching_prefix', rows=shared,
                   observed_rows={'unicorn': len(left), 'qemu': len(right)},
                   first_unpaired={'unicorn': left[shared:shared + 1], 'qemu': right[shared:shared + 1]},
-                  stops={'unicorn': unicorn['stop'], 'qemu': qemu['stop']})
+                  stops={'unicorn': unicorn_stop, 'qemu': qemu_stop})
     if shared and left[0].get('pc') != right[0].get('pc'):
         result['addresses'] = {'unicorn': left[0].get('pc'), 'qemu': right[0].get('pc')}
     return result
@@ -432,16 +503,88 @@ for item in found:
     ttbr0 = int(token, 16 if token.lower().startswith('0x') else 10) & 0xffffffff
     break
 gdb.execute('stepi', to_string=True)
-pc = int(gdb.parse_and_eval('$pc')) & 0xfffffffe
-state = {name: int(gdb.parse_and_eval('$' + name)) & 0xffffffff for name in registers}
-row = dict(pc=pc, offset=0, state=state, thread=gdb.selected_thread().ptid,
-           bytes=None, ttbr0=ttbr0)
-try:
-    row['bytes'] = bytes(gdb.selected_inferior().read_memory(pc, 4)).hex()
-except gdb.MemoryError as error:
-    row['read_error'] = str(error)
-print('BOUNDARY_ROW ' + json.dumps(row), flush=True)
-print('BOUNDARY_STOP ' + json.dumps(dict(reason='user_return', pc=pc, ttbr0=ttbr0)), flush=True)
+if not loader_probe:
+    pc = int(gdb.parse_and_eval('$pc')) & 0xfffffffe
+    state = {name: int(gdb.parse_and_eval('$' + name)) & 0xffffffff for name in registers}
+    row = dict(pc=pc, offset=0, state=state, thread=gdb.selected_thread().ptid,
+               bytes=None, ttbr0=ttbr0)
+    try:
+        row['bytes'] = bytes(gdb.selected_inferior().read_memory(pc, 4)).hex()
+    except gdb.MemoryError as error:
+        row['read_error'] = str(error)
+    print('BOUNDARY_ROW ' + json.dumps(row), flush=True)
+    print('BOUNDARY_STOP ' + json.dumps(dict(reason='user_return', pc=pc, ttbr0=ttbr0)), flush=True)
+else:
+    import sys
+    import time
+    sys.path.insert(0, project_root)
+    from tools.research.qemu_boot_probe import Qmp
+
+    def read_ram(address, size):
+        if not 0 <= address < address + size <= 0x40000000:
+            raise ValueError('physical sample outside first guest RAM bank')
+        text = monitor.request('human-monitor-command',
+                               {'command-line': 'xp /%dbx %#x' % (size, address)})
+        data = parse_xp_bytes(text)
+        if data is None or len(data) != size:
+            raise ValueError('short physical memory response')
+        return data
+
+    def translate(address):
+        return walk_short_descriptor(address, ttbr0,
+                                     lambda pa: int.from_bytes(read_ram(pa, 4), 'little'))
+
+    def read_state():
+        pc = int(gdb.parse_and_eval('$pc')) & 0xfffffffe
+        state = {name: int(gdb.parse_and_eval('$' + name)) & 0xffffffff for name in registers}
+        return pc, state
+
+    entry = int(gdb.parse_and_eval('$pc')) & 0xfffffffe
+    reason = 'sample_limit'
+    monitor = Qmp(monitor_path, time.monotonic() + 15)
+    try:
+        for index in range(limit):
+            pc, state = read_state()
+            if state['cpsr'] & 0x3f != 0x30 or not entry <= pc < entry + loader_span:
+                reason = 'left_thumb_window'
+                break
+            row = dict(pc=pc, offset=pc-entry, state=state, thread=gdb.selected_thread().ptid,
+                       bytes=None, ttbr0=ttbr0)
+            if index == 0:
+                try:
+                    row['stack_bytes'] = read_user_sample(
+                        state['sp'], stack_bytes, translate, read_ram).hex()
+                except (ValueError, OSError, RuntimeError) as error:
+                    row['stack_error'] = str(error)
+            try:
+                row['page_walk_address'] = translate(pc)
+                if index == 0 and row['page_walk_address'] is None:
+                    gdb.execute('stepi', to_string=True)
+                    next_pc, next_state = read_state()
+                    row['initial_fetch'] = dict(pc=next_pc, cpsr=next_state['cpsr'])
+                    if next_pc != 0xffff000c or next_state['cpsr'] & 0x1f != 0x17:
+                        raise ValueError('unexpected stop resolving initial instruction fetch')
+                    retry = gdb.Breakpoint('*%#x' % entry, type=gdb.BP_HARDWARE_BREAKPOINT)
+                    retry.condition = '($cpsr & 0x3f) == 0x30'
+                    try:
+                        gdb.execute('continue', to_string=True)
+                    finally:
+                        retry.delete()
+                    retry_pc, retry_state = read_state()
+                    if retry_pc != entry or retry_state != state:
+                        raise ValueError('prefetch abort did not return to the same entry state')
+                    row['page_walk_address'] = translate(pc)
+                row['bytes'] = read_user_sample(pc, 4, translate, read_ram).hex()
+            except (ValueError, OSError, RuntimeError) as error:
+                row['read_error'] = str(error)
+                reason = 'loader_read_error'
+            print('BOUNDARY_ROW ' + json.dumps(row), flush=True)
+            if not row['bytes'] or index + 1 == limit:
+                break
+            gdb.execute('stepi', to_string=True)
+    finally:
+        monitor.close()
+    print('BOUNDARY_STOP ' + json.dumps(dict(reason=reason, pc=pc, ttbr0=ttbr0)), flush=True)
 """
 
 
@@ -568,8 +711,8 @@ def qemu_capture(args, reference, output):
                          'QEMU kemco handoff and device model may differ from Unicorn policies.')
     stop = args.stop
     name = stop['name']
-    if name == 'user-return':
-        report['windows']['bounds'] = {name: ['user-return']}
+    if stop['kind'] == 'user-return':
+        report['windows']['bounds'] = {name: [name]}
     else:
         report['windows']['bounds'] = {name: [stop['pc'], stop['end']]}
     report['stop_spec'] = name
@@ -692,10 +835,18 @@ def qemu_capture(args, reference, output):
                         stage=stage), indent=2) + '\n', encoding='utf-8')
                     report['checkpoint_created'] = str(stage_dir)
                 script = output / 'capture.gdb'
-                if name == 'user-return':
-                    write_gdb(script, GDB_USER_RETURN, dict(
+                if stop['kind'] == 'user-return':
+                    source = GDB_USER_RETURN
+                    if name == 'user-loader':
+                        source = ('\nimport re\n' + inspect.getsource(parse_xp_bytes)
+                                  + '\n' + inspect.getsource(walk_short_descriptor)
+                                  + '\n' + inspect.getsource(read_user_sample) + source)
+                    write_gdb(script, source, dict(
                         socket_path=str(debug), msr_pc=USER_RETURN_MSR,
-                        movs_pc=USER_RETURN_MOVS, registers=REGISTERS))
+                        movs_pc=USER_RETURN_MOVS, registers=REGISTERS,
+                        loader_probe=name == 'user-loader', limit=stop['limit'],
+                        loader_span=USER_LOADER_SPAN, stack_bytes=USER_STACK_BYTES,
+                        project_root=str(PROJECT_ROOT), monitor_path=str(monitor)))
                 else:
                     write_gdb(script, GDB_CAPTURE, dict(
                         socket_path=str(debug), start=stop['pc'], end=stop['end'],
@@ -705,7 +856,8 @@ def qemu_capture(args, reference, output):
                 rows, notes = read_gdb_rows(output / 'gdb.log', stop.get('limit', MAX_ROWS))
                 report['windows']['rows'][name] = rows
                 report.update(notes)
-                if rows and any(not row.get('bytes') for row in rows) and monitor.exists():
+                if (name != 'user-loader' and rows
+                        and any(not row.get('bytes') for row in rows) and monitor.exists()):
                     try:
                         held = Qmp(monitor, time.monotonic() + 5)
                         try:
@@ -753,7 +905,7 @@ def main():
     parser.add_argument('--window', choices=WINDOWS,
                         help='historical return or loader window; use --stop for a named probe')
     parser.add_argument('--stop', type=parse_stop,
-                        help='user-return, kernel-entry, or pc:ADDRESS')
+                        help='user-return, user-loader, kernel-entry, or pc:ADDRESS')
     parser.add_argument('--loader-entry', type=arm_user_address, help='override the historical loader VA')
     parser.add_argument('--qemu-report', type=Path, help='compare an existing QEMU receipt')
     parser.add_argument('--qemu', type=Path, help='patched qemu-system-arm binary')
@@ -795,7 +947,11 @@ def main():
         window = args.stop['name']
         if reference is None:
             print(json.dumps(qemu['stop'], indent=2))
-            return 0 if qemu['windows']['rows'].get(window) else 2
+            rows = qemu['windows']['rows'].get(window, [])
+            if window == 'user-loader':
+                return 0 if (rows and rows[0].get('stack_bytes')
+                             and qemu['stop']['reason'] in ('sample_limit', 'left_thumb_window')) else 2
+            return 0 if rows else 2
         report = compare(reference, qemu, window)
     except (KeyError, ValueError, OSError, RuntimeError) as error:
         parser.exit(2, f'{error}\n')

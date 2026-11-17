@@ -18,8 +18,21 @@ build, out = Path(sys.argv[1]), Path(sys.argv[2])
 out.mkdir()
 req = (build / "mlv2.req").read_bytes()
 h = struct.unpack_from("<9I", req)
-shim = req[36 + 12 * h[8]:]
+shim = req[36 + 12 * h[8]:36 + 12 * h[8] + h[3]]
 assert len(shim) == h[3]
+relocs = ()
+if h[1] == 2:
+    n = struct.unpack_from("<I", req, 36 + 12 * h[8] + h[3])[0]
+    relocs = struct.unpack_from(f"<{n}I", req, 36 + 12 * h[8] + h[3] + 4)
+    assert len(req) == 36 + 12 * h[8] + h[3] + 4 + 4 * n
+
+
+def moved_shim(vb, tb):
+    out = bytearray(shim)
+    for r in relocs:
+        o = r & 0x3FFFFFFF
+        struct.pack_into("<I", out, o, (struct.unpack_from("<I", out, o)[0] + (vb if r >> 30 else tb)) & 0xFFFFFFFF)
+    return bytes(out)
 
 for src, exe, extra in (("mlv2_guard.c", "guard", ["-DMLV2_HOST_TEST"]),
                         ("host_test_target.c", "target", ["-pthread"])):
@@ -42,9 +55,10 @@ STOCK = (bytes.fromhex("044600af51b100f5c23303f52b731960"), bytes.fromhex("2de9f
 
 
 class Target:
-    def __init__(self, mode):
+    def __init__(self, mode, vb=0, tb=0):
         self.dir = tempfile.mkdtemp()
-        self.p = subprocess.Popen([str(out / "target"), self.dir, mode], stdin=subprocess.PIPE,
+        extra = [hex(vb), hex(tb)] if vb or tb else []
+        self.p = subprocess.Popen([str(out / "target"), self.dir, mode, *extra], stdin=subprocess.PIPE,
                                   stdout=subprocess.PIPE, text=True)
         self.pid = int(self.p.stdout.readline().split()[1])
 
@@ -98,6 +112,22 @@ case("install refuses v1 hooks", "v1", "install", 1, "MLV2_RESULT=-13", unchange
 case("upgrade refuses stock hooks", "stock", "upgrade", 1, "MLV2_RESULT=-13", unchanged)
 case("refuses unknown hooks", "unknown", "upgrade", 1, "STATE hooks=unknown", unchanged)
 case("refuses non-zero cave", "cavedirty", "upgrade", 1, "MLV2_RESULT=-12", unchanged)
+
+# Moved layout (QEMU-like): libraries at other bases; the guard relocates every address and the shim.
+if relocs:
+    VB, TB = 0x00800000, 0x00100000
+    t = Target("stock", VB, TB)
+    rc, text = guard(t, "install")
+    a = t.dump()
+    t.close()
+    v2m = branches(*(e + TB for e in h[4:7]))
+    ms = moved_shim(VB, TB)
+    ok = (rc == 0 and f"view_bias={VB:08x} testcmd_bias={TB:08x}" in text and "INSTALLED" in text and
+          a[0] == ms + bytes(len(a[0]) - len(ms)) and tuple(a[1:4]) == v2m and a[4] == a[5] == RECT)
+    log.append(f"[{'PASS' if ok else 'FAIL'}] install on a moved layout relocates hooks and shim: rc={rc}\n" +
+               "".join("    " + l + "\n" for l in text.splitlines()))
+    if not ok:
+        failures.append("moved layout")
 
 # Idempotence: a second install on an already-installed target is a no-op.
 t = Target("stock")

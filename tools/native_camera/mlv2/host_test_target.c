@@ -3,7 +3,9 @@
  * seeds the hook windows with a chosen state, runs a few idle threads, and answers stdin commands:
  *   dump  -> hex of the shim cave, the three hook windows and both rectangle slots
  *   quit  -> exit
- * Usage: host_test_target DIR stock|v1|v1life|v2junk|unknown|cavedirty
+ * Usage: host_test_target DIR stock|v1|v1life|v2junk|unknown|cavedirty [VIEW_BIAS TESTCMD_BIAS]
+ * The libraries are mapped from file offset 0 at their reference bases plus the optional biases,
+ * so the guard derives the same differences from /proc/PID/maps as on a moved layout.
  */
 #define _GNU_SOURCE
 #include <fcntl.h>
@@ -16,13 +18,14 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
-#define SHIM_ADDR 0x05662760u
+static uint32_t vb, tb;
+#define SHIM_ADDR (0x05662760u + tb)
 #define SHIM_CAP 2208u
-#define HOOK_SET_ROOT 0x15b91654u
-#define HOOK_REFRESH 0x15b91a80u
-#define HOOK_OPEN_ITEM 0x15b92044u
-#define RECT1 0x15de8a04u
-#define RECT2 0x15de8a84u
+#define HOOK_SET_ROOT (0x15b91654u + vb)
+#define HOOK_REFRESH (0x15b91a80u + vb)
+#define HOOK_OPEN_ITEM (0x15b92044u + vb)
+#define RECT1 (0x15de8a04u + vb)
+#define RECT2 (0x15de8a84u + vb)
 
 static const unsigned char o_sr[16] = {0x04, 0x46, 0x00, 0xaf, 0x51, 0xb1, 0x00, 0xf5, 0xc2, 0x33, 0x03, 0xf5, 0x2b, 0x73, 0x19, 0x60};
 static const unsigned char o_rf[16] = {0x2d, 0xe9, 0xf0, 0x4f, 0x9b, 0xb0, 0x06, 0xaf, 0x04, 0x46, 0x07, 0xf1, 0x20, 0x00, 0x4f, 0xf0};
@@ -64,13 +67,12 @@ static void hex(uint32_t a, unsigned n) {
 }
 
 int main(int argc, char **argv) {
-    if (argc != 3) return 2;
+    if (argc != 3 && argc != 5) return 2;
+    if (argc == 5) { vb = (uint32_t)strtoul(argv[3], 0, 0); tb = (uint32_t)strtoul(argv[4], 0, 0); }
     prctl(PR_SET_NAME, "im.elf");
     prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY);
-    map_file(argv[1], "libtestcmd.so", 0x05662000u, 0x2000);
-    map_file(argv[1], "viewUnified2.so", 0x15b91000u, 0x2000);
-    if (mmap((void *)0x15de8000u, 0x1000, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0) !=
-        (void *)0x15de8000u) return 12;
+    map_file(argv[1], "libtestcmd.so", 0x05660000u + tb, 0x3000);
+    map_file(argv[1], "viewUnified2.so", 0x155e6000u + vb, 0x8ac000);
     const char *m = argv[2];
     memcpy((void *)(uintptr_t)HOOK_SET_ROOT, o_sr, 16);
     memcpy((void *)(uintptr_t)HOOK_REFRESH, o_rf, 16);

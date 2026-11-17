@@ -6,7 +6,7 @@ from tools.research.thumb_boundary import (CHECKPOINT_PC, GDB_CAPTURE,
                                            checkpoint_usable, compare,
                                            cpsr_bit_names, observe_without_continue,
                                            parse_stop, parse_xp_bytes, parse_xp_word,
-                                           physical_address, stage_for_stop,
+                                           physical_address, read_user_sample, stage_for_stop,
                                            walk_short_descriptor)
 
 
@@ -21,6 +21,34 @@ def sample(offset=0, data='00bf00bf', cpsr=0x30):
 
 
 class ThumbBoundaryTest(unittest.TestCase):
+    def test_user_loader_preserves_cpu_difference_and_summarizes_bytes(self):
+        def loader_report(pc, sp, stack):
+            rows = [
+                dict(sample(), pc=pc, stack_bytes=stack,
+                     state={'cpsr': 0x30, 'sp': sp, 'r1': sp + 0xc8}),
+                dict(sample(offset=2), pc=pc + 2),
+            ]
+            report = receipt([])
+            report['windows']['rows']['user-loader'] = rows
+            return report
+
+        result = compare(loader_report(0x4000, 0x8000, '010002'),
+                         loader_report(0x5000, 0x9000, '010003'), 'user-loader')
+        self.assertEqual(result['category'], 'cpu_state')
+        self.assertEqual(result['loader']['matching_instruction_samples'], 2)
+        self.assertEqual(result['loader']['compared_stack_bytes'], 3)
+        self.assertEqual(result['loader']['first_stack_difference'], 2)
+        self.assertEqual(result['loader']['entries']['qemu']['r1_from_sp'], 0xc8)
+
+    def test_user_sample_translates_each_page_and_rejects_non_ram(self):
+        mapping = {0x1ffe: 0x4ffe, 0x2000: 0x8000}
+        reads = {(0x4ffe, 2): b'ab', (0x8000, 2): b'cd'}
+        read = lambda physical, length: reads[physical, length]
+        self.assertEqual(read_user_sample(0x1ffe, 4, mapping.get, read), b'abcd')
+        mapping[0x2000] = 0xf0000000
+        with self.assertRaisesRegex(ValueError, 'no first-bank RAM translation'):
+            read_user_sample(0x1ffe, 4, mapping.get, read)
+
     def test_incompatible_kernel_precedes_state_comparison(self):
         result = compare(receipt([sample()]), receipt([sample()], 'kernel-b'), 'loader')
         self.assertEqual(result['field'], 'kernel_sha256')

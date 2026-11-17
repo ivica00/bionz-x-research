@@ -16,7 +16,15 @@
 # RUN_DIR, AVCAM (legacy mode only: path to av-cam.bin),
 # TIMEOUT (seconds, 0 = none), EXTRA (appended cmdline tokens),
 # QEMU_EXTRA (extra QEMU options; default "-icount shift=0,sleep=on" ties
-# virtual time to executed instructions, E0522; set QEMU_EXTRA= to disable).
+# virtual time to executed instructions, E0522; set QEMU_EXTRA= to disable),
+# EVSEL_LATE_US (opt-in source-30 delay in us, E0557; unset = off),
+# CAMPIG_ENABLE_READBACK=1 (opt-in CamPig IRQ enable register, E0566),
+# SGC1_EVENT_A=1 (opt-in Sgc1 event A and IRQ 35, E0569).
+# REAR_CONTROLS=1 (route host keys to emulated rear camera controls).
+# REAR_LCD_DIAGNOSTIC=1 (E0572 device select on the run's qcow2 overlay).
+# SERIAL (QEMU -serial backend for ttyAM0; default mon:stdio). The mod tools use a unix socket.
+# SETTING_FILES ("HOST_PATH:NAME ..." added to /setting on the run's disposable overlay only;
+# host paths must not contain spaces). Mod development stages the guard and request this way.
 # The machine models 4 Cortex-A5 cores by default (E0522); -smp 1 still works.
 set -euo pipefail
 E="$(cd "$(dirname "$0")" && pwd)"
@@ -72,13 +80,29 @@ rm -f "$R/emmc-overlay.qcow2"
 # the a6400 cmdline's wbimem=0x500000@0x03085000.  Set ULOGIO= to skip.
 # nflasha2 = user-area 0x00800000 (+8 MiB of eMMC boot partitions in the file).
 ULOGIO="${ULOGIO-$E/../firmware/extracted_zve10_v203_packman/firmware.tar_unpacked/0800_appli/setting/ulogio.bin}"
-if [ -n "$ULOGIO" ]; then
+if [ -n "$ULOGIO" ] || [ -n "${SETTING_FILES:-}" ]; then
     SET_OFF=$((0x1000000)); SET_LEN=$((0x1400000))
     dd if="$D/emmc.img" of="$R/setting-part.img" bs=1M skip=$((SET_OFF >> 20)) \
        count=$((SET_LEN >> 20)) status=none
-    python3 "$E/tools/fat_add_file.py" "$R/setting-part.img" "$ULOGIO" ulogio.bin >&2
-    "$Q/build/qemu-io" -f qcow2 -c "write -q -s $R/setting-part.img $SET_OFF $SET_LEN" \
-        "$R/emmc-overlay.qcow2"
+    if [ -n "$ULOGIO" ]; then
+        python3 "$E/tools/fat_add_file.py" "$R/setting-part.img" "$ULOGIO" ulogio.bin >&2
+    fi
+    for item in ${SETTING_FILES:-}; do
+        python3 "$E/tools/fat_add_file.py" "$R/setting-part.img" "${item%%:*}" "${item##*:}" >&2
+    done
+    # qemu-io splits the -c string on whitespace, including within paths.
+    # Use a relative source name so a run directory with spaces works.
+    QEMU_IO="$(cd "$Q/build" && pwd)/qemu-io"
+    (cd "$R" && "$QEMU_IO" -f qcow2 \
+        -c "write -q -s setting-part.img $SET_OFF $SET_LEN" emmc-overlay.qcow2)
+fi
+
+# E0572 is an opt-in firmware diagnostic applied only to the disposable overlay.
+if [ "${REAR_LCD_DIAGNOSTIC:-0}" = 1 ]; then
+    LCD_OFF=$(python3 "$E/tools/rear_lcd_overlay.py" "$D/emmc.img" "$R/rear-lcd-sector.bin")
+    QEMU_IO="$(cd "$Q/build" && pwd)/qemu-io"
+    (cd "$R" && "$QEMU_IO" -f qcow2 \
+        -c "write -q -s rear-lcd-sector.bin $LCD_OFF 512" emmc-overlay.qcow2)
 fi
 
 # Sub-micro frames (E0527): av-cam's micro->CPU RX slots A/C/B
@@ -95,14 +119,35 @@ if [ -n "$SUBMICRO_PAGE" ]; then
         > "$R/submicro-frames.bin"
     MACHINE="sony-a6400,submicro-frames=$R/submicro-frames.bin"
 fi
+if [ "${CAMPIG_ENABLE_READBACK:-0}" = 1 ]; then
+    MACHINE="$MACHINE,campig-enable-readback=on"
+fi
+if [ "${SGC1_EVENT_A:-0}" = 1 ]; then
+    MACHINE="$MACHINE,sgc1-event-a=on"
+fi
+if [ "${REAR_CONTROLS:-0}" = 1 ]; then
+    MACHINE="$MACHINE,rear-controls=on"
+fi
+
+# Evsel source order (E0557, opt-in): deliver timing-event source 30 (av-cam
+# HS root 0x639242D8) EVSEL_LATE_US microseconds after source 29 (frame start
+# 0x63924A38) instead of in the same pulse.  The real phase is unknown
+# [assumption]; av-cam only needs 30 after 29 and before the first int_HS slot
+# step (~4170 us).  Unset = off (the a5000 single-pulse model).
+EVSEL=()
+if [ -n "${EVSEL_LATE_US:-}" ]; then
+    EVSEL=(-global cxd90014-evsel.late-src=30
+           -global cxd90014-evsel.late-us="$EVSEL_LATE_US")
+fi
 
 echo "Backup.bin -> $BACKUP_PA, av-cam.bin -> $AVCAM_PA, overlay $R/emmc-overlay.qcow2" >&2
 T=()
 if [ "${TIMEOUT:-0}" != 0 ]; then T=(timeout "$TIMEOUT"); fi
-exec "${T[@]}" "$Q/build/qemu-system-arm" -M "$MACHINE" -m 1G -nographic -serial mon:stdio \
+exec "${T[@]}" "$Q/build/qemu-system-arm" -M "$MACHINE" -m 1G -nographic -serial "${SERIAL:-mon:stdio}" \
   -kernel "$D/nflasha3-Image" -initrd "$D/nflasha3-initrd" \
   -append "$CMD ${EXTRA:-}" \
   -drive if=sd,format=qcow2,file="$R/emmc-overlay.qcow2" \
   -device loader,file="$R/Backup.bin",addr="$BACKUP_PA",force-raw=on \
   -device loader,file="$R/av-cam.bin",addr="$AVCAM_PA",force-raw=on \
+  "${EVSEL[@]}" \
   ${QEMU_EXTRA--icount shift=0,sleep=on}
