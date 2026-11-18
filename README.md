@@ -55,6 +55,8 @@ In QEMU the loader now installs in the original `im.elf`, loads the camera MenuT
 through per-library relocation and hot-reloads rebuilt mods in the Sony menu
 ([E0577](docs/evidence/0577-qemu-real-mods-relocation-and-hot-reload.md)).
 The YUV live image remains a separate investigation.
+Offline firmware analysis and Unicorn verification also map a staged Open Gate (3:2) recording development path
+([E0578](docs/evidence/0578-a6400-open-gate-3-2-recording-feasibility.md)).
 
 ### ILCE-7RM4A reference profile ([E0570](docs/evidence/0570-ilce-7rm4a-offline-sourced-profile.md))
 
@@ -167,9 +169,9 @@ and [E0521](docs/evidence/0521-qemu-a6400-main-firmware-boots-to-avcam.md) (the 
 `sony-a6400` machine boots the main `nflasha3` firmware to a shell and brings up four Cortex-A5
 cores; this is QEMU, not the Unicorn emulator).
 
-![Research status: demonstrated results and remaining boundaries](docs/images/research-status.svg?v=67a51d6aae8b)
+![Research status: demonstrated results and remaining boundaries](docs/images/research-status.svg?v=e5948c71e8d8)
 
-![Daily automated test suite growth: 1992 tests across 31 days](docs/images/test-growth.svg?v=042bf90ecd62)
+![Daily automated test suite growth: 1992 tests across 31 days](docs/images/test-growth.svg?v=9bd7ed84b026)
 
 ### Subsystem status
 

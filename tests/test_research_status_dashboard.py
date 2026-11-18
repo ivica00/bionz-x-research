@@ -320,7 +320,7 @@ class TestEpistemicHonesty(unittest.TestCase):
                 else:
                     self.assertIn(token, INVENTORY_SOURCES, f"unknown inventory source {token!r}")
 
-        self.assertEqual(len(DAILY_TEST_HISTORY), 31)
+        self.assertEqual(len(DAILY_TEST_HISTORY), 32)
         self.assertEqual(DAILY_TEST_HISTORY[0].date, "2026-10-18")
         self.assertEqual(DAILY_TEST_HISTORY[0].total, 204)
         self.assertEqual(DAILY_TEST_HISTORY[-1].date, STATUS_SNAPSHOT.as_of)

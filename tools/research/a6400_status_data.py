@@ -218,19 +218,20 @@ class StatusSnapshot:
 
 STATUS_SNAPSHOT = StatusSnapshot(
     schema_version=1,
-    as_of="2026-11-17",
+    as_of="2026-11-18",
     latest=EvidenceRef(
-        evidence_id="E0577",
-        path="docs/evidence/0577-qemu-real-mods-relocation-and-hot-reload.md",
-        date="2026-11-17",
-        title="Real mods and hot reload in the QEMU Sony menu",
+        evidence_id="E0578",
+        path="docs/evidence/0578-a6400-open-gate-3-2-recording-feasibility.md",
+        date="2026-11-18",
+        title="Open Gate (3:2) recording feasibility on ILCE-6400",
         demonstrated=(
-            "Mod Loader v2 loads, hot-reloads and unloads the camera MenuTouchFull build in QEMU."
+            "Offline av-cam.bin / libObj.so analysis and Unicorn verification map IMX284 3:2 modes, "
+            "1620x1080/3240x2160 DMM entries, and ZIMA DVENC/MovieRec gates."
         ),
         boundary=(
-            "Touch handlers not exercised in QEMU; the relocating loader has not run on the camera."
+            "Offline analysis only; ZIMA DVENC 3:2 encode and IMX284 timing mods remain untested on hardware."
         ),
-        tier="OFFLINE QEMU",
+        tier="OFFLINE + UNICORN",
     ),
     headline="1992 offline suite cases | Thumb loader prefix matches QEMU | BusyBox prompt",
     cards=(
@@ -586,8 +587,8 @@ STATUS_SNAPSHOT = StatusSnapshot(
     ),
     suite=SuiteRecord(
         test_count=1992,
-        recorded_at="2026-11-17",
-        evidence_id="E0577",
+        recorded_at="2026-11-18",
+        evidence_id="E0578",
         command="python -m unittest discover -s tests -q",
     ),
     footer=(
@@ -1040,6 +1041,7 @@ DAILY_TEST_HISTORY: tuple[DailyTestPoint, ...] = (
     DailyTestPoint("2026-11-15", 1903, 8, "E0523", "MTF2 touch mod, guarded Mod Loader & QEMU a6400 boot/SMP"),
     DailyTestPoint("2026-11-16", 1905, 2, "E0524", "Captured QEMU boot inputs, eMMC addressing & qualified LIRO waits"),
     DailyTestPoint("2026-11-17", 1992, 87, "E0577", "QEMU Ydet boundary, mod reload and QEMU mod hot reload"),
+    DailyTestPoint("2026-11-18", 1992, 0, "E0578", "Open Gate (3:2) recording feasibility and development path"),
 )
 
 
