@@ -44,7 +44,7 @@ Legend: `🟢 Verified` · `🟡 Partial / Opt-in` · `⚪ Open Boundary` · `�
 
 - **Live camera sensor, shutter & recording (QEMU & Unicorn):** No live YUV/RAW sensor stream, AF/AE loop, still capture, or movie recording to SD (QEMU stops at mode-sequencer step 32; see [QEMU checkpoint](qemu-a6400/STATUS.md)).
 - **Touch-panel hardware in QEMU:** The `sony-a6400` board has no emulated touch controller, so touch mods (`MTF2`) cannot be exercised via clicks in QEMU ([`MOD_DEVELOPMENT.md`](qemu-a6400/MOD_DEVELOPMENT.md)).
-- **USB Gadget (UVC / PTP / MSC) in QEMU:** Live USB host-to-camera enumeration and streaming are not emulated in QEMU; USB/UVC contracts are verified via Unicorn and physical hardware runs.
+- **USB Gadget (UVC / PTP / MSC) in QEMU:** With opt-in `USB_VBUS_TEST=1` and `USB_CID_HIGH=1` (bit 1 high at `0xF2920010`), virtual cable attach and detach pass `SetJackStatus(1)`, broadcast `0x0A400A`/`0x0A400B`, and transition `libBusPower.so` (`state 0 → 2 → 0`), while `viewUnified2.so` (`DefRootView::ActionOpenUSB`) awaits `FirstView`/clock readiness before loading USB servers and sending `0x0A2000` (`StartGadget`). Gadget start, enumeration and streaming remain open. [E0579](docs/evidence/0579-qemu-usb-and-sensor-observation.md) · [E0580](docs/evidence/0580-qemu-usb-vbus-interrupt.md) · [E0587](docs/evidence/0587-qemu-usb-cid-high-unlocks-vbus-broadcast.md) · [E0588](docs/evidence/0588-qemu-usb-buspower-and-obj-fsm-dispatch.md) · [E0589](docs/evidence/0589-qemu-usb-mode-gate-and-defrootview.md)
 - **Peripherals & Radios (QEMU & Unicorn):** Wi-Fi / Bluetooth (`BCM4339`), HDMI output, E-mount lens communication, audio I/O, and hardware watchdog (`0xF2402000`) are unmodelled.
 - **Full Unicorn L3 GUI & Non-a6400 Boot:** `InterpreterProbe` (Unicorn L3) does not yet produce a GUI frame (`stella` heap & GPES barriers), and only `ILCE-6400` is a verified execution target (other `CXD90045` bodies are reference profiles).
 
@@ -81,9 +81,9 @@ Registered profiles live in [`src/a6400/targets/`](src/a6400/targets/catalog.py)
 
 ## Live Status Telemetry
 
-Recorded offline suite: **1992 tests** (latest evidence: [E0578](docs/evidence/0578-a6400-open-gate-3-2-recording-feasibility.md)). Earlier narrative highlights are preserved in [docs/archives/readme-latest-progress-2026-11-18.md](docs/archives/readme-latest-progress-2026-11-18.md) and [docs/archives/readme-latest-progress-2026-11-15.md](docs/archives/readme-latest-progress-2026-11-15.md).
+Recorded offline suite: **1992 tests** ([E0578](docs/evidence/0578-a6400-open-gate-3-2-recording-feasibility.md)). Latest evidence [E0588](docs/evidence/0588-qemu-usb-buspower-and-obj-fsm-dispatch.md). Earlier narrative highlights are preserved in [docs/archives/readme-latest-progress-2026-11-18.md](docs/archives/readme-latest-progress-2026-11-18.md) and [docs/archives/readme-latest-progress-2026-11-15.md](docs/archives/readme-latest-progress-2026-11-15.md).
 
-![Research status: demonstrated results and remaining boundaries](docs/images/research-status.svg?v=e5948c71e8d8)
+![Research status: demonstrated results and remaining boundaries](docs/images/research-status.svg?v=3fc96ccbb17f)
 
 ![Daily automated test suite growth: 1992 tests across 31 days](docs/images/test-growth.svg?v=9bd7ed84b026)
 

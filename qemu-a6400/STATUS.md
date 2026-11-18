@@ -1,5 +1,157 @@
 # QEMU `sony-a6400`: findings and next steps
 
+## `DefRootView::ActionOpenUSB` gates USB server `dlopen` and `StartGadget` (`0x0A2000`) (2026-11-18 / E0589)
+
+- Static analysis proves `libObj.so+0x83A9C4` (`CEC`) ignores `0x0A400A`/`0x0A400B`,
+  `libBusPower.so+0x59F8` sends `0x083001` rather than `0x0A2000`, and
+  `viewUnified2.so` (`DefRootView::ActionOpenUSB` `+0x2ADFB8` reading
+  `BackupManager::Bkup_Read(0x0107001F)`) selects `view/USBAUTO`,
+  `view/USBMASSSTORAGE`, `view/USBMTP`, or `view/USBREMOTEPC`.
+- QEMU `im.elf` `/proc/$p/maps` confirms `libInfraMscServer.so`,
+  `libInfraMtpServer.so`, and `libInfraRemote.so` are not loaded at boot.
+  `DefRootView::CheckerUSBAndClockReady` (`+0x2AC00A`, `+0x2AC044`) and
+  `CheckerUSBAndClockReady4FirstView` (`+0x2B271A`) run once at `FirstView`
+  before `usb-vbus=true`, and `CheckerUSBConnect` (`+0x2ACBB0`),
+  `ActionOpenUSB` (`+0x2ADFB8`), and `UsbIfWrapper::StartGadget` (`+0x12C78`)
+  stay at 0 hits on QMP attach.
+- Artifacts: `artifacts/qemu-a6400/e0589-usb-mode-gate/` (`vbus-trace.so`,
+  `vbus-console.log`, `vbus-report.json`, `correlate.py`, `correlation.json`).
+  Next boundary: unblock `DefRootView` past `FirstView`/Live-View step 32
+  (Phase 4) or drive `0x0A2000` / `cxd90045-dwc3` gadget model (Phase 2). See
+  [E0589](../docs/evidence/0589-qemu-usb-mode-gate-and-defrootview.md).
+
+## `libBusPower.so` FSM transitions on unlocked VBUS while `UsbControl` stays in STOP (2026-11-18 / E0588)
+
+- Resolving `lr` and `[fsm+0x10]` at `UFW::Fsm::DispatchEvent` (`+0x0AFD2`)
+  proves `0x0A400A` / `0x0A400B` drives `libBusPower.so+0x3B03` (`0x08E00D2C`)
+  across `state 0 → 2 → 0` (`handleEvent` returning `0`) on QMP attach and
+  detach.
+- Meanwhile `libObj.so+0x839C1B` (`0x08E016C8`, `state=0`) ignores `r1=2`
+  (`handleEvent` returning `0xFFFFFFFF`), `UsbControl` (`0x08E005E8`) remains
+  in `actionStopEntry` (`+0x11A18`), and no `0x0A2000` (`StartGadget`) command
+  arrives at `UsbControl::DispatchEvent` (`+0x10678`).
+- Artifacts: `artifacts/qemu-a6400/e0588-usb-fsm-state/` (`vbus-trace.so`,
+  `vbus-console.log`, `vbus-report.json`, `correlate.py`, `correlation.json`).
+  Next boundary: `libObj.so+0x839C1B` and the USB connection mode gate
+  (`E0589`). See
+  [E0588](../docs/evidence/0588-qemu-usb-buspower-and-obj-fsm-dispatch.md).
+
+## Opt-in `usb-cid-high` unlocks VBUS broadcast and FSM dispatch (2026-11-18 / E0587)
+
+- Added opt-in `usb-cid-high` (`USB_CID_HIGH=1`, default `false`) to
+  `qemu-a6400/qemu-overlay/hw/arm/sony_a6400.c` and `qemu-a6400/run.sh`,
+  setting bit 1 (`0x2`) at `0xF2920010` while keeping the `E0580`
+  `usb-vbus-test` baseline intact.
+- Both boot `0x0A6000` calls passed `param_1002 = 0`, keeping
+  `[UsbControl+0xCC] == 0`. Both QMP attach (`0x00000003`) and QMP detach
+  (`0x00000002`) passed `SetJackStatus(1, ...) == 1`, updated `[+0xD0]`
+  (`0 → 1 → 0`), posted `sendJackStatusToInput(1, ...)` on `0x007A0020`,
+  broadcast `0x0A400A` / `0x0A400B` (`r0=0`), and reached
+  `UFW::Fsm::DispatchEvent` (`0x0B900A24`, `r1=1` / `r1=0`).
+- Artifacts: `artifacts/qemu-a6400/e0587-usb-vbus-unlock/` (`vbus-trace.so`,
+  `vbus-console.log`, `vbus-report.json`, `correlate.py`, `correlation.json`).
+  Next boundary: why `0x0B900A24` did not enter `actionGVbusON` (`+0x11F46`) /
+  `actionGStartGadget` (`+0x120B0`) (`E0588`). See
+  [E0587](../docs/evidence/0587-qemu-usb-cid-high-unlocks-vbus-broadcast.md).
+
+## FUSB bit 1 (CID) and OTG kevent subtype 0 root cause (2026-11-18 / E0586)
+
+- Kernel disassembly (`nflasha3-Image` `0x602ADB74..0x602ADB9C`,
+  `0x602AD2CC..0x602AD33C`) proves `0xF2920010` encodes VBUS in bit 0
+  (`& 1`) and active-low OTG CID/ID in bit 1 (`ubfx r1, r1, #1, #1`).
+  Because `SonyUsbVbus` returns `0` at startup (bit 1 clear), `fusb_notify_cid`
+  sees `0` (Host/CID asserted).
+- In `libInfraUsbCmn.so`, `CUsbSvc::proc_kevent_otg` (`+0xB0DC`) routes
+  `subtype 0` (CID) through `proc_notify(0)` / `proc_svc_event(0)` to
+  `UsbIfWrapper+0x12E54` (`r0=9`), emitting boot payloads `byte0 = 2, 1, 1`
+  (`param_1002 = 0, 1, 1`) and latching `[UsbControl+0xCC] = 1`.
+- Artifacts: `artifacts/qemu-a6400/e0586-usb-otg-kevent/` (`vbus-trace.so`,
+  `vbus-console.log`, `vbus-report.json`, `correlate.py`, `correlation.json`).
+  Next boundary: opt-in bit-1 CID high (`0x2` at `0xF2920010`) to unlock
+  `SetJackStatus(1, 1)` and `0x0A400A` FSM broadcast (`E0587`). See
+  [E0586](../docs/evidence/0586-qemu-usb-cid-bit1-and-otg-kevent.md).
+
+## USB Control jack-2 (event 9 / 0x0A6000) suppression gate (2026-11-18 / E0585)
+
+- Direct guest memory reads (`+0xC0..+0xDF` at `+0x110EE`, `+0x110F4`,
+  `+0x12980`, `+0x1103E`, `+0x11042`) confirm all three boot `0x0A6000`
+  messages come from `UsbIfWrapper` callback `+0x12E54` (`r0=9`,
+  `proc_svc_event` case `1` / `CUsbSvc::proc_kevent_otg` case `1`), driving
+  `SetJackStatus(this, 2, 0)` then `SetJackStatus(this, 2, 1)` twice and
+  latching `[UsbControl+0xCC] = 1`.
+- Both post-boot QMP VBUS attach and detach read `[0x09200AB8 + 0xCC] == 1`
+  and `[+0xD0] == 0` at `SetJackStatus(this, 1, 1_or_0)` (`+0x12980`), return
+  `0` (`+0x129CE` / `+0x11042`), and exit before downstream USB broadcast.
+- Artifacts: `artifacts/qemu-a6400/e0585-usb-jack2/` (`vbus-trace.so`,
+  `vbus-console.log`, `vbus-report.json`, `correlate.py`, `correlation.json`).
+  Next boundary: `usb_portMonitor` / `/dev/usb/event` OTG kevent type-1
+  (`ID`/`CID`) producer (`E0586`). See
+  [E0585](../docs/evidence/0585-qemu-usb-jack2-suppression.md).
+
+## USB Control PostMsg handoff and SetJackStatus gate (2026-11-18 / E0584)
+
+- `UFW::MsgReceiver::PostMsg` (`+0xA936`/`+0xA96A`) allocates and
+  copy-constructs a fresh `MWF::ObjMsg` (`0x0007DB18` → `0x0007EEF8` attach;
+  `0x00269060` → `0x00269050` detach), solving the `E0583` `RcvMsg` pointer
+  difference and delivering both transitions through `UsbControl::Main`
+  (`+0x112E2`) into `UsbControl::ProcessMsg` (`+0x10F84`).
+- Unlike early-boot `0x0A4000` jack-1 detach messages processed before three
+  boot `0x0A6000` messages, both post-boot QMP attach and detach exit early
+  after `SetJackStatus(this, 1, 1_or_0)` (`+0x1103E` -> `beq.w 0x1128c`).
+  Disassembly of `SetJackStatus` (`+0x12980`) and case `0x0A6000`
+  (`+0x110CC..+0x110F0`) shows `jack_id == 1` returns `0` whenever `[this + 0xCC]`
+  (jack 2, written by `0x0A6000`) equals `1`.
+- Artifacts: `artifacts/qemu-a6400/e0584-usb-postmsg/` (`vbus-trace.so`,
+  `vbus-console.log`, `vbus-report.json`, `correlate.py`, `correlation.json`,
+  `postmsg-rcvmsg.txt`, `processmsg-main.txt`, `jack-status.txt`). See
+  [E0584](../docs/evidence/0584-qemu-usb-postmsg-and-processmsg.md).
+
+## USB Control local synchronous send (2026-11-18 / E0583)
+
+Both original VBUS messages allocate and send successfully on the local
+`0x00CA8192` queue. Both wrappers reach the original
+`UsbControl::funcOsalSyncCb`. The next observable handoff is
+`preProcess` to `MsgReceiver::PostMsg`. See
+[E0583](../docs/evidence/0583-qemu-usb-local-sync-send.md).
+
+## USB Control port-monitor queue (2026-11-18 / E0582)
+
+Original port-monitor dispatch sends attach and detach through
+`0x00E942CD`. The stock `libUsbControl.so` callback receives both
+12-byte messages and enters `SendEvt` for each. The synchronous-send
+result and receiving state decision remain to be traced. See
+[E0582](../docs/evidence/0582-qemu-usb-port-monitor-queue.md).
+
+## USB userspace event delivery (2026-11-18 / E0581)
+
+Virtual attach and detach now have an observed path through port 0,
+`usb_portMonitor`, `/dev/usb/event`, and the original
+`CUsbSvc::proc_kevent_otg`. Both take the ordinary notification path
+without a new OTG ioctl or gadget start in the observation window.
+See [E0581](../docs/evidence/0581-qemu-vbus-port-and-userspace-delivery.md).
+
+## Virtual USB cable (2026-11-18 / E0580)
+
+`USB_VBUS_TEST=1` lets QMP control cable presence. The original FUSB
+handler took IRQ 230 on connect and disconnect and read `1` then `0`
+at `0xF2920010`. The duplicate connect generated no additional visit.
+Both transitions also reached `event_vbus_exec`. Trace that handler's
+port decision and callbacks through gadget start before implementing
+EP0 transactions. See [E0580](../docs/evidence/0580-qemu-usb-vbus-interrupt.md).
+
+## USB and sensor observation (2026-11-18 / E0579)
+
+The original DWC3 driver binds at `0xF0200000` and exposes the Sony USB
+device nodes. The passive USB observer captured 15 original MMIO accesses
+during startup, including reset polls answered by unimplemented MMIO.
+IRQ 229–231 remained idle in the baseline shell snapshot. The virtual
+cable status word, interrupt behavior, and gadget transfers remain open.
+
+Opt-in `P2S_TRACE=1` records transfer staging, modeled completion and
+reset. Native qtest verified the trace and the default writer behavior.
+The captured firmware boot emitted no P2S transfer before its bounded
+stop. See [E0579](../docs/evidence/0579-qemu-usb-and-sensor-observation.md).
+
 ## Viewfinder console (2026-11-16 / E0544)
 
 This section continues the captured-input boot recorded in E0524. It does not

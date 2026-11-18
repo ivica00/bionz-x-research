@@ -220,18 +220,18 @@ STATUS_SNAPSHOT = StatusSnapshot(
     schema_version=1,
     as_of="2026-11-18",
     latest=EvidenceRef(
-        evidence_id="E0578",
-        path="docs/evidence/0578-a6400-open-gate-3-2-recording-feasibility.md",
+        evidence_id="E0589",
+        path="docs/evidence/0589-qemu-usb-mode-gate-and-defrootview.md",
         date="2026-11-18",
-        title="Open Gate (3:2) recording feasibility on ILCE-6400",
+        title="DefRootView::ActionOpenUSB gates USB server dlopen and StartGadget",
         demonstrated=(
-            "Offline av-cam.bin / libObj.so analysis and Unicorn verification map IMX284 3:2 modes, "
-            "1620x1080/3240x2160 DMM entries, and ZIMA DVENC/MovieRec gates."
+            "libInfraMscServer/MtpServer/InfraRemote are not loaded at boot; viewUnified2.so "
+            "CheckerUSBAndClockReady runs once at FirstView before VBUS, while ActionOpenUSB stays at 0 hits."
         ),
         boundary=(
-            "Offline analysis only; ZIMA DVENC 3:2 encode and IMX284 timing mods remain untested on hardware."
+            "Phase 2 cxd90045-dwc3 gadget model + Phase 4 FirstView/Live-View step 32 unblock."
         ),
-        tier="OFFLINE + UNICORN",
+        tier="OFFLINE + QEMU",
     ),
     headline="1992 offline suite cases | Thumb loader prefix matches QEMU | BusyBox prompt",
     cards=(

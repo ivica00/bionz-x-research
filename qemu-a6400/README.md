@@ -228,3 +228,46 @@ GPU, SA DSP ID responses, and a P2S writer. Five guest seconds after
 `SetContentTarget`, graphic console 0 shows the viewfinder readout (E0536).
 The YUV layer is still off, and forcing `isOutputEvf` to return 0 does not
 select the rear-LCD skin (E0541). See [STATUS.md](STATUS.md).
+
+## USB and sensor diagnostics
+
+These diagnostics run offline against the ILCE-6400 main firmware. Prepare
+captured inputs using the workflow above. The E0579 boot set already contains
+`ulogio.bin`, so its runs use `ULOGIO=` to skip the launcher's optional copy.
+
+- Rebuild the board overlay and set `P2S_TRACE=1` before running `run.sh`.
+  The console records up to 64 accepted starts and their modeled completion
+  or reset. Each start includes the raw transfer config, mode, and low bytes
+  of the 112 staging words at `0xF3C00340–0xF3C004FC`. The staging words can
+  retain bytes from previous transfers. Use the trace to compare guest
+  programming with the IMX284 tables in [E0578](../docs/evidence/0578-a6400-open-gate-3-2-recording-feasibility.md).
+- Build the DWC3 observer against the QEMU 10.1 plugin API and append
+  `-plugin /absolute/path/dwc3_trace.so` to your `QEMU_EXTRA` options.
+  It records guest PC, physical register, access direction, width and
+  value for matched accesses from the ILCE-6400 kernel. The footer reports
+  counts and truncation per core. Preserve the default `-icount` option
+  when comparing to the E0579 replay.
+
+```bash
+# Run from the project root with A6400_QEMU_DIR set to the QEMU checkout.
+gcc -std=c11 -Wall -Wextra -Werror -Wno-unused-parameter -fPIC -shared \
+    $(pkg-config --cflags glib-2.0) -I "$A6400_QEMU_DIR/include/qemu" \
+    qemu-a6400/tools/dwc3_trace.c -o /tmp/dwc3_trace.so
+```
+
+Current boot observations and the next USB and sensor boundaries are recorded
+in [E0579](../docs/evidence/0579-qemu-usb-and-sensor-observation.md).
+
+### Virtual USB cable
+
+Launch with `USB_VBUS_TEST=1` and a local `-qmp` socket in `QEMU_EXTRA`.
+After the guest has started, send `qmp_capabilities` and set the cable
+state. Use `false` to disconnect.
+
+```json
+{"execute":"qom-set","arguments":{"path":"/machine","property":"usb-vbus","value":true}}
+```
+
+The guest's FUSB handler reads the new status on IRQ 230. The experiment
+starts disconnected and resets to disconnected. DWC3 gadget transactions
+remain the next boundary. See [E0580](../docs/evidence/0580-qemu-usb-vbus-interrupt.md).

@@ -4,6 +4,42 @@
 The entries below are dated history: their test counts and boundaries describe the state at
 the time of writing and are not updated retroactively.
 
+QEMU USB Control local send (2026-11-18,
+[E0583](evidence/0583-qemu-usb-local-sync-send.md)):
+both messages reach the original synchronous UsbControl callback.
+Trace the `preProcess` to `PostMsg` handoff and the receiving
+state decision before adding DWC3 gadget behavior.
+
+QEMU USB Control queue (2026-11-18,
+[E0582](evidence/0582-qemu-usb-port-monitor-queue.md)):
+original port-monitor state dispatch delivers both cable transitions
+to the `libUsbControl.so` callback via `0x00E942CD). The original
+event builder reaches `SendEvt`. Trace the synchronous-send result
+and correlate the receiving FSM before modeling gadget startup.
+
+QEMU USB event delivery (2026-11-18,
+[E0581](evidence/0581-qemu-vbus-port-and-userspace-delivery.md)):
+the stock kernel forwards virtual cable events on port 0 through
+`usb_portMonitor` and `/dev/usb/event`. The original userspace callback
+takes the ordinary notification path. The port-monitor worker dispatches
+attach and detach through its original routine at `.text+0x17FC`.
+Follow its consumers to the first gadget start.
+
+QEMU virtual USB cable (2026-11-18, [E0580](evidence/0580-qemu-usb-vbus-interrupt.md)):
+the original FUSB handler reads both emulated cable states on IRQ 230
+and delivers both to `event_vbus_exec`. Next, trace its port decision
+and callbacks through gadget start, then use the original driver to
+program and service DWC3 EP0.
+
+QEMU USB and sensor observation (2026-11-18,
+[E0579](evidence/0579-qemu-usb-and-sensor-observation.md)):
+the original DWC3 driver binds and the passive observer records its
+startup MMIO. Resolve the VBUS status address and interrupt behavior
+before testing host setup packets through the gadget event ring. The
+P2S writer can now trace staged sensor commands, with qtest coverage.
+Capture a firmware transfer on a later live-image boot to correlate
+it with the IMX284 mode tables.
+
 Offline QEMU input and wait qualification (2026-11-16,
 [E0524](evidence/0524-reproducible-captured-qemu-boot-and-liro-waits.md)):
 captured boot sets now reproduce with unchanged original hashes. Native eMMC

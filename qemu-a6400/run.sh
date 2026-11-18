@@ -20,6 +20,10 @@
 # EVSEL_LATE_US (opt-in source-30 delay in us, E0557; unset = off),
 # CAMPIG_ENABLE_READBACK=1 (opt-in CamPig IRQ enable register, E0566),
 # SGC1_EVENT_A=1 (opt-in Sgc1 event A and IRQ 35, E0569).
+# P2S_TRACE=1 (log the first 64 sensor-writer transfers).
+# USB_VBUS_TEST=1 (enable the runtime usb-vbus QMP property).
+# USB_CID_HIGH=1 (opt-in FUSB CID bit 1 high / peripheral idle, E0587).
+# DWC3_GADGET=1 (opt-in CXD90045 DWC3 gadget at 0xF020C000 and IRQ 229, E0590).
 # REAR_CONTROLS=1 (route host keys to emulated rear camera controls).
 # REAR_LCD_DIAGNOSTIC=1 (E0572 device select on the run's qcow2 overlay).
 # SERIAL (QEMU -serial backend for ttyAM0; default mon:stdio). The mod tools use a unix socket.
@@ -128,6 +132,15 @@ fi
 if [ "${REAR_CONTROLS:-0}" = 1 ]; then
     MACHINE="$MACHINE,rear-controls=on"
 fi
+if [ "${USB_VBUS_TEST:-0}" = 1 ]; then
+    MACHINE="$MACHINE,usb-vbus-test=on"
+fi
+if [ "${USB_CID_HIGH:-0}" = 1 ]; then
+    MACHINE="$MACHINE,usb-cid-high=on"
+fi
+if [ "${DWC3_GADGET:-0}" = 1 ]; then
+    MACHINE="$MACHINE,dwc3-gadget=on"
+fi
 
 # Evsel source order (E0557, opt-in): deliver timing-event source 30 (av-cam
 # HS root 0x639242D8) EVSEL_LATE_US microseconds after source 29 (frame start
@@ -140,6 +153,11 @@ if [ -n "${EVSEL_LATE_US:-}" ]; then
            -global cxd90014-evsel.late-us="$EVSEL_LATE_US")
 fi
 
+P2S=()
+if [ "${P2S_TRACE:-0}" = 1 ]; then
+    P2S=(-global cxd90014-p2s.trace-transfers=on)
+fi
+
 echo "Backup.bin -> $BACKUP_PA, av-cam.bin -> $AVCAM_PA, overlay $R/emmc-overlay.qcow2" >&2
 T=()
 if [ "${TIMEOUT:-0}" != 0 ]; then T=(timeout "$TIMEOUT"); fi
@@ -149,5 +167,5 @@ exec "${T[@]}" "$Q/build/qemu-system-arm" -M "$MACHINE" -m 1G -nographic -serial
   -drive if=sd,format=qcow2,file="$R/emmc-overlay.qcow2" \
   -device loader,file="$R/Backup.bin",addr="$BACKUP_PA",force-raw=on \
   -device loader,file="$R/av-cam.bin",addr="$AVCAM_PA",force-raw=on \
-  "${EVSEL[@]}" \
+  "${EVSEL[@]}" "${P2S[@]}" \
   ${QEMU_EXTRA--icount shift=0,sleep=on}

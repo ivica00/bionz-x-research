@@ -185,7 +185,17 @@ class UnicornMachine:
                  target_id: str | None = None,
                  mask_async_abort_at_entry: bool = False,
                  mask_async_abort_on_irq: bool = False,
-                 allow_nonsecure_af_writes: bool = False):
+                 allow_nonsecure_af_writes: bool = False,
+                 vfp_d16_mvfr0: bool = False,
+                 qemu_cpu_parity: bool = False,
+                 qemu_peripherals: bool = False,
+                 oracle_mmio_trace: dict[int, list[int]] | None = None,
+                 emmc_image=None):
+        if qemu_cpu_parity:
+            mask_async_abort_at_entry = True
+            mask_async_abort_on_irq = True
+            allow_nonsecure_af_writes = True
+            vfp_d16_mvfr0 = True
         if int.from_bytes(kernel_raw[0:4], 'little') != 0xE321F0D3:
             raise MachineError('kernel_raw does not start with the ARM kernel head')
         if not machine_id:
@@ -199,6 +209,17 @@ class UnicornMachine:
         self.machine_id = machine_id
         self.entry_cpsr = 0xD3 | (0x100 if mask_async_abort_at_entry else 0)
         self.mask_async_abort_on_irq = mask_async_abort_on_irq
+        self.vfp_d16_mvfr0 = vfp_d16_mvfr0
+        self.vfp_mvfr0_d16_hits = 0
+        self.vfp_mvfr0_sites: list[str] = []
+        self.qemu_peripherals = qemu_peripherals
+        self.emmc_image = emmc_image
+        self._cxd_bus = None
+        self._oracle_mmio_queues: dict[int, list[int]] = {
+            int(addr): list(vals) for addr, vals in (oracle_mmio_trace or {}).items() if vals
+        }
+        self._oracle_mmio_last: dict[int, int] = {}
+        self.oracle_mmio_hits: Counter = Counter()
         self.kernel_load = kernel_load
         self.initrd_load = initrd_load
         self.boot_params = boot_params
@@ -456,6 +477,22 @@ class UnicornMachine:
         self.unmapped_counts: Counter = Counter()
         self._instructions = 0
         self._build(ram_banks, mmio_ranges, sram)
+        if self.qemu_peripherals:
+            from src.a6400.devices.cxd90045_peripherals import CxdPeripheralBus
+
+            def set_soft_irq(irq: int, level: bool) -> None:
+                if level:
+                    self._soft_pending_irqs.add(irq)
+                else:
+                    self._soft_pending_irqs.discard(irq)
+
+            self._cxd_bus = CxdPeripheralBus(
+                set_irq=set_soft_irq,
+                mem_read=lambda addr, n: bytes(self.uc.mem_read(addr, n)),
+                mem_write=lambda addr, data: self.uc.mem_write(addr, data),
+                emmc_image=self.emmc_image,
+            )
+            self._sugilite_clk_regs.setdefault(0x80, 0x15)
 
     # ------------------------------------------------------------------ helpers
     def _ensure_mapped(self, begin: int, end: int, perms: int = 7) -> None:
@@ -1089,6 +1126,20 @@ class UnicornMachine:
                 uc.mem_write(address, (stored & ((1 << (size * 8)) - 1))
                              .to_bytes(size, 'little'))
                 return True
+            if self._cxd_bus is not None:
+                bus_val = self._cxd_bus.read(address, size=size)
+                if bus_val is not None:
+                    uc.mem_write(address, (bus_val & ((1 << (size * 8)) - 1))
+                                 .to_bytes(size, 'little'))
+                    return True
+            if address in self._oracle_mmio_queues:
+                queue = self._oracle_mmio_queues[address]
+                oracle_val = queue.pop(0) if queue else self._oracle_mmio_last.get(address, 0)
+                self._oracle_mmio_last[address] = oracle_val
+                self.oracle_mmio_hits[address] += 1
+                uc.mem_write(address, (oracle_val & ((1 << (size * 8)) - 1))
+                             .to_bytes(size, 'little'))
+                return True
             # Remaining MMIO reads fall through to the mapped zero/register image
             # (PL011 FR is pre-seeded to TXFE|RXFE).
             return True
@@ -1158,6 +1209,8 @@ class UnicornMachine:
                     self._uart_regs[offset] = value & 0xFFFFFFFF
                     if offset == PL011_IMSC:
                         self._sync_uart_irq()
+            if self._cxd_bus is not None and self._cxd_bus.write(address, value, size=size):
+                return True
             if size <= 4:
                 stream = self.mmio_write_bytes.setdefault(address, bytearray())
                 if len(stream) < 2048:
@@ -1412,6 +1465,8 @@ class UnicornMachine:
             self.uc.hook_add(UC_HOOK_CODE, page_fault_hook,
                              begin=page_fault, end=page_fault + 3)
         self._install_fault_mrc_hooks()
+        if self.vfp_d16_mvfr0:
+            self._install_vfp_mvfr0_hook()
         if self.enable_svc_dispatch and (
                 self.virtual_tlb or self.virtual_tlb_enabled
                 or self.virtual_tlb_on_userspace):
@@ -1981,6 +2036,40 @@ class UnicornMachine:
                          make_hook(UC_ARM_REG_R0, lambda: self.last_dfar,
                                    'dabt_mrc_hits'),
                          begin=dabt_mrc_r0, end=dabt_mrc_r0 + 3)
+
+    def _install_vfp_mvfr0_hook(self) -> None:
+        """Emulate VFPv3-D16 MVFR0 reads in __boottime_vfp_init (E0562).
+
+        Unicorn's Cortex-A9 model reports 32 D-registers (MVFR0[3:0] = 2) and
+        does not expose MVFR0 as a writable register.  When opted in, intercept
+        ``vmrs rt, mvfr0`` inside ``__boottime_vfp_init`` and supply VFPv3-D16
+        (``0x10110221``, low nibble 1) so the kernel sets ``HWCAP_VFPv3D16``
+        and passes its D16 check without a binary patch.
+        """
+        vfp_base = self._symbol_address('__boottime_vfp_init')
+        if vfp_base is None:
+            return
+        offset = vfp_base - 0x60000000 - self.kernel_load
+        if offset < 0 or offset + 4 > len(self.kernel_raw):
+            return
+        window = self.kernel_raw[offset:min(len(self.kernel_raw), offset + 0x160)]
+        for rel in range(0, len(window) - 3, 4):
+            word = int.from_bytes(window[rel:rel + 4], 'little')
+            if (word & 0xFFFF0FFF) != 0xEEF70A10:
+                continue
+            rt = (word >> 12) & 0xF
+            if rt >= len(_R_REG):
+                continue
+            site = vfp_base + rel
+            reg = _R_REG[rt]
+
+            def mvfr0_hook(uc, address, size, user, reg=reg):
+                uc.reg_write(reg, 0x10110221)
+                self.vfp_mvfr0_d16_hits += 1
+                uc.reg_write(UC_ARM_REG_PC, address + 4)
+
+            self.uc.hook_add(UC_HOOK_CODE, mvfr0_hook, begin=site, end=site + 3)
+            self.vfp_mvfr0_sites.append(f'0x{site:08x}')
 
     def _deliver_svc_exception(self, pc: int, cpsr: int, kind: str) -> bool:
         """Emulate vector_stub entry for SVC-mode aborts (E0435).
@@ -4148,6 +4237,12 @@ class UnicornMachine:
             'kuser_entries': list(self.kuser_entries),
             'pabt_mrc_hits': self.pabt_mrc_hits,
             'dabt_mrc_hits': self.dabt_mrc_hits,
+            'vfp_d16_mvfr0': self.vfp_d16_mvfr0,
+            'vfp_mvfr0_d16_hits': self.vfp_mvfr0_d16_hits,
+            'vfp_mvfr0_sites': list(self.vfp_mvfr0_sites),
+            'qemu_peripherals': self.qemu_peripherals,
+            'oracle_mmio_hits': {f'0x{addr:08x}': count
+                                 for addr, count in self.oracle_mmio_hits.items()},
             'last_ifar': f'0x{self.last_ifar:08x}',
             'last_dfar': f'0x{self.last_dfar:08x}',
             'banked_store_hits': self.banked_store_hits,

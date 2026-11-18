@@ -1096,6 +1096,127 @@ static void sony_a6400_set_campig_enable_readback(Object *obj, bool value,
     sony_a6400_campig_enable_readback = value;
 }
 
+/*
+ * E0580: the original FUSB handler samples bit 0 at 0xF2920010.
+ * Its UDIF descriptor requests rising-edge IRQ 230. A virtual cable
+ * transition updates the input before pulsing that interrupt.
+ */
+typedef struct SonyUsbVbus {
+    MemoryRegion status;
+    qemu_irq irq;
+    bool present;
+} SonyUsbVbus;
+
+static bool sony_a6400_usb_vbus_test;
+static bool sony_a6400_usb_cid_high;
+static bool sony_a6400_dwc3_gadget;
+static SonyUsbVbus *sony_a6400_usb_vbus;
+
+static uint64_t sony_usb_vbus_read(void *opaque, hwaddr addr, unsigned size)
+{
+    SonyUsbVbus *vbus = opaque;
+
+    return (vbus->present ? 1U : 0U) | (sony_a6400_usb_cid_high ? 2U : 0U);
+}
+
+static bool sony_usb_vbus_accepts(void *opaque, hwaddr addr, unsigned size,
+                                  bool is_write, MemTxAttrs attrs)
+{
+    return !is_write;
+}
+
+static const MemoryRegionOps sony_usb_vbus_ops = {
+    .read = sony_usb_vbus_read,
+    .endianness = DEVICE_LITTLE_ENDIAN,
+    .valid = {
+        .min_access_size = 4,
+        .max_access_size = 4,
+        .accepts = sony_usb_vbus_accepts,
+    },
+};
+
+static void sony_usb_vbus_reset(void *opaque)
+{
+    SonyUsbVbus *vbus = opaque;
+
+    vbus->present = false;
+    qemu_irq_lower(vbus->irq);
+}
+
+static void sony_usb_vbus_create(MachineState *machine, qemu_irq irq)
+{
+    SonyUsbVbus *vbus = g_new0(SonyUsbVbus, 1);
+
+    vbus->irq = irq;
+    memory_region_init_io(&vbus->status, OBJECT(machine), &sony_usb_vbus_ops,
+                          vbus, "cxd90045.usb-vbus-status", 4);
+    memory_region_add_subregion_overlap(get_system_memory(), 0xF2920010ULL,
+                                        &vbus->status, 0);
+    qemu_register_reset(sony_usb_vbus_reset, vbus);
+    sony_a6400_usb_vbus = vbus;
+}
+
+static bool sony_get_usb_vbus_test(Object *obj, Error **errp)
+{
+    return sony_a6400_usb_vbus_test;
+}
+
+static void sony_set_usb_vbus_test(Object *obj, bool enabled, Error **errp)
+{
+    if (phase_check(PHASE_MACHINE_INITIALIZED)) {
+        error_setg(errp, "usb-vbus-test is a startup option");
+        return;
+    }
+    sony_a6400_usb_vbus_test = enabled;
+}
+
+static bool sony_get_usb_cid_high(Object *obj, Error **errp)
+{
+    return sony_a6400_usb_cid_high;
+}
+
+static void sony_set_usb_cid_high(Object *obj, bool enabled, Error **errp)
+{
+    if (phase_check(PHASE_MACHINE_INITIALIZED)) {
+        error_setg(errp, "usb-cid-high is a startup option");
+        return;
+    }
+    sony_a6400_usb_cid_high = enabled;
+}
+
+static bool sony_get_dwc3_gadget(Object *obj, Error **errp)
+{
+    return sony_a6400_dwc3_gadget;
+}
+
+static void sony_set_dwc3_gadget(Object *obj, bool enabled, Error **errp)
+{
+    if (phase_check(PHASE_MACHINE_INITIALIZED)) {
+        error_setg(errp, "dwc3-gadget is a startup option");
+        return;
+    }
+    sony_a6400_dwc3_gadget = enabled;
+}
+
+static bool sony_get_usb_vbus(Object *obj, Error **errp)
+{
+    return sony_a6400_usb_vbus && sony_a6400_usb_vbus->present;
+}
+
+static void sony_set_usb_vbus(Object *obj, bool present, Error **errp)
+{
+    SonyUsbVbus *vbus = sony_a6400_usb_vbus;
+
+    if (!vbus) {
+        error_setg(errp, "usb-vbus requires a running machine with usb-vbus-test enabled");
+        return;
+    }
+    if (vbus->present != present) {
+        vbus->present = present;
+        qemu_irq_pulse(vbus->irq);
+    }
+}
+
 static void sony_a6400_submicro_xfer(void *opaque, int ch, uint32_t mode,
                                      uint8_t *buf, int len)
 {
@@ -1219,6 +1340,15 @@ static void sony_a6400_init(MachineState *machine)
                                 0x08000000ULL);
     if (sony_a6400_sgc1_event_a) {
         sony_sgc1_create(machine, pic[35 - 32]);
+    }
+    if (sony_a6400_usb_vbus_test) {
+        sony_usb_vbus_create(machine, pic[230 - 32]);
+    }
+    if (sony_a6400_dwc3_gadget) {
+        DeviceState *dwc3 = qdev_new("cxd90045-dwc3");
+        sysbus_realize_and_unref(SYS_BUS_DEVICE(dwc3), &error_fatal);
+        sysbus_mmio_map_overlap(SYS_BUS_DEVICE(dwc3), 0, 0xF020C000ULL, -500);
+        sysbus_connect_irq(SYS_BUS_DEVICE(dwc3), 0, pic[229 - 32]);
     }
 
     /*
@@ -1517,6 +1647,25 @@ static void sony_a6400_machine_init(MachineClass *mc)
                                    sony_a6400_set_rear_controls);
     object_class_property_set_description(OBJECT_CLASS(mc), "rear-controls",
         "Connect host keys to a6400 ADC, GPIO and sub-micro inputs");
+    object_class_property_add_bool(OBJECT_CLASS(mc), "usb-vbus-test",
+                                   sony_get_usb_vbus_test,
+                                   sony_set_usb_vbus_test);
+    object_class_property_set_description(OBJECT_CLASS(mc), "usb-vbus-test",
+        "Enable the experimental FUSB cable status and IRQ 230 (E0580)");
+    object_class_property_add_bool(OBJECT_CLASS(mc), "usb-cid-high",
+                                   sony_get_usb_cid_high,
+                                   sony_set_usb_cid_high);
+    object_class_property_set_description(OBJECT_CLASS(mc), "usb-cid-high",
+        "Keep FUSB CID bit 1 high (floating / peripheral idle) at 0xF2920010 (E0587)");
+    object_class_property_add_bool(OBJECT_CLASS(mc), "dwc3-gadget",
+                                   sony_get_dwc3_gadget,
+                                   sony_set_dwc3_gadget);
+    object_class_property_set_description(OBJECT_CLASS(mc), "dwc3-gadget",
+        "Enable the experimental CXD90045 DWC3 gadget controller at 0xF020C000 and IRQ 229 (E0590)");
+    object_class_property_add_bool(OBJECT_CLASS(mc), "usb-vbus",
+                                   sony_get_usb_vbus, sony_set_usb_vbus);
+    object_class_property_set_description(OBJECT_CLASS(mc), "usb-vbus",
+        "Set virtual cable presence at runtime");
 }
 
 DEFINE_MACHINE("sony-a6400", sony_a6400_machine_init)

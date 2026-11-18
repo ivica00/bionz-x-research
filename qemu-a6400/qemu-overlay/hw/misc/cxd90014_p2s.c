@@ -39,6 +39,7 @@
 #include "qemu/osdep.h"
 #include "hw/sysbus.h"
 #include "hw/irq.h"
+#include "hw/qdev-properties.h"
 #include "qemu/timer.h"
 #include "qemu/log.h"
 #include "qemu/module.h"
@@ -51,6 +52,10 @@ OBJECT_DECLARE_SIMPLE_TYPE(P2SState, CXD_P2S)
 #define P2S_SIZE 0x1000
 #define O(pa) ((pa) - P2S_BASE)
 #define XFER_US 50 /* hypothesis: < the 1 ms driver wait */
+#define P2S_TRACE_LIMIT 64
+#define P2S_DATA_START 0x340
+#define P2S_DATA_END 0x500
+#define P2S_DATA_WORDS ((P2S_DATA_END - P2S_DATA_START) / 4)
 
 struct P2SState {
     SysBusDevice parent_obj;
@@ -60,6 +65,9 @@ struct P2SState {
     bool busy;                  /* 0x908 bit0 */
     QEMUTimer *done;
     qemu_irq irq;
+    bool trace_transfers;
+    unsigned trace_count;
+    unsigned traced_transfer;
 };
 
 #define R(o) (s->r[(o) / 4])
@@ -68,7 +76,7 @@ static bool p2s_known(hwaddr off)
 {
     hwaddr pa = off + P2S_BASE;
     return (pa >= 0xF3C00300 && pa <= 0xF3C0030C) ||
-           (pa >= 0xF3C00340 && pa < 0xF3C00500) ||
+           (off >= P2S_DATA_START && off < P2S_DATA_END) ||
            pa == 0xF3C00800 || pa == 0xF3C00808 ||
            pa == 0xF3C00904 || pa == 0xF3C00908;
 }
@@ -85,6 +93,11 @@ static void p2s_done(void *opaque)
 
     s->busy = false;
     s->status |= 1;
+    if (s->traced_transfer) {
+        fprintf(stderr, "[P2S trace] done id=%u status=0x%08x\n",
+                s->traced_transfer, s->status);
+        s->traced_transfer = 0;
+    }
     if (left > 0) {
         left--;
         fprintf(stderr, "[P2S] done\n");
@@ -111,6 +124,25 @@ static void p2s_start(P2SState *s)
                 b[12] << 24 | b[13] << 16 | b[14] << 8 | b[15]);
     }
     s->busy = true;
+    if (s->trace_transfers && s->trace_count < P2S_TRACE_LIMIT) {
+        char slots[2 * P2S_DATA_WORDS + 1];
+        static const char hex[] = "0123456789abcdef";
+        unsigned pos = 0;
+
+        for (unsigned off = P2S_DATA_START; off < P2S_DATA_END; off += 4) {
+            uint32_t byte = R(off) & 0xff;
+            slots[pos++] = hex[byte >> 4];
+            slots[pos++] = hex[byte & 0xf];
+        }
+        slots[pos] = '\0';
+        s->traced_transfer = ++s->trace_count;
+        fprintf(stderr, "[P2S trace] start id=%u config=0x%08x "
+                "mode=0x%08x slots=%s\n",
+                s->traced_transfer, R(0x30c), R(0x800), slots);
+        if (s->trace_count == P2S_TRACE_LIMIT) {
+            fprintf(stderr, "[P2S trace] transfer budget reached\n");
+        }
+    }
     timer_mod(s->done, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
               XFER_US * SCALE_US);
 }
@@ -174,6 +206,10 @@ static void p2s_reset(DeviceState *dev)
     s->status = 0;
     s->busy = false;
     timer_del(s->done);
+    if (s->traced_transfer) {
+        fprintf(stderr, "[P2S trace] reset id=%u\n", s->traced_transfer);
+        s->traced_transfer = 0;
+    }
     p2s_update(s);
 }
 
@@ -186,9 +222,15 @@ static void p2s_init(Object *obj)
     s->done = timer_new_ns(QEMU_CLOCK_VIRTUAL, p2s_done, s);
 }
 
+static const Property p2s_props[] = {
+    DEFINE_PROP_BOOL("trace-transfers", P2SState, trace_transfers, false),
+};
+
 static void p2s_class_init(ObjectClass *klass, const void *data)
 {
-    device_class_set_legacy_reset(DEVICE_CLASS(klass), p2s_reset);
+    DeviceClass *dc = DEVICE_CLASS(klass);
+    device_class_set_props(dc, p2s_props);
+    device_class_set_legacy_reset(dc, p2s_reset);
 }
 
 static const TypeInfo p2s_info = {

@@ -67,6 +67,58 @@ class UnicornMachineTests(unittest.TestCase):
                 machine.uc.emu_start(machine.kernel_load, machine.kernel_load + 4, count=1)
                 self.assertEqual(machine.uc.reg_read(UC_ARM_REG_CPSR), expected)
 
+    def test_vfp_d16_mvfr0_emulation_is_opt_in(self):
+        import struct
+        from unicorn.arm_const import UC_ARM_REG_R1
+        # Put a vmrs r1, mvfr0 (0xEEF71A10) at kernel_load + 0x100
+        kernel = bytearray(b'\xD3\xF0\x21\xE3' + b'\x00' * 0x200)
+        struct.pack_into('<I', kernel, 0x100, 0xEEF71A10)
+        symbols = {'__boottime_vfp_init': 0x60108000 + 0xE0}
+        default_machine = UnicornMachine(
+            bytes(kernel), b'\x00', b'', machine_id=MACHINE_ID, symbols=symbols
+        )
+        self.assertFalse(default_machine.vfp_d16_mvfr0)
+        self.assertEqual(default_machine.vfp_mvfr0_sites, [])
+
+        parity_machine = UnicornMachine(
+            bytes(kernel), b'\x00', b'', machine_id=MACHINE_ID, symbols=symbols,
+            qemu_cpu_parity=True,
+        )
+        self.assertTrue(parity_machine.vfp_d16_mvfr0)
+        self.assertTrue(parity_machine.mask_async_abort_on_irq)
+        self.assertEqual(parity_machine.entry_cpsr, 0x1D3)
+        self.assertEqual(parity_machine.entry_scr, 0x31)
+        self.assertEqual(parity_machine.vfp_mvfr0_sites, [f'0x{0x60108100:08x}'])
+        parity_machine.uc.reg_write(UC_ARM_REG_R1, 0)
+        # __boottime_vfp_init runs with MMU on at virtual 0x60108100.
+        parity_machine.uc.mem_map(0x60108000, 0x1000)
+        parity_machine.uc.mem_write(0x60108100, struct.pack('<I', 0xEEF71A10))
+        parity_machine.uc.emu_start(0x60108100, 0x60108104, count=1)
+        self.assertEqual(parity_machine.uc.reg_read(UC_ARM_REG_R1), 0x10110221)
+        self.assertEqual(parity_machine.vfp_mvfr0_d16_hits, 1)
+
+    def test_oracle_mmio_trace_replays_sequence_and_holds_last(self):
+        import struct
+        from unicorn.arm_const import UC_ARM_REG_R0
+        # ldr r0, [pc, #0x10] (addr 0xF2916000); ldr r1, [r0]; ldr r2, [r0]; ldr r3, [r0]
+        kernel = bytearray(b'\xD3\xF0\x21\xE3' + b'\x00' * 0x100)
+        struct.pack_into('<5I', kernel, 0x40,
+                         0xE59F0008,  # ldr r0, [pc, #8] -> 0x00108050
+                         0xE5901000,  # ldr r1, [r0]
+                         0xE5902000,  # ldr r2, [r0]
+                         0xE5903000,  # ldr r3, [r0]
+                         0xF2916000)  # literal
+        machine = UnicornMachine(
+            bytes(kernel), b'\x00', b'', machine_id=MACHINE_ID,
+            oracle_mmio_trace={0xF2916000: [0x11, 0x22]},
+        )
+        machine.uc.emu_start(0x00108040, 0x00108050, count=4)
+        from unicorn.arm_const import UC_ARM_REG_R1, UC_ARM_REG_R2, UC_ARM_REG_R3
+        self.assertEqual(machine.uc.reg_read(UC_ARM_REG_R1), 0x11)
+        self.assertEqual(machine.uc.reg_read(UC_ARM_REG_R2), 0x22)
+        self.assertEqual(machine.uc.reg_read(UC_ARM_REG_R3), 0x22)
+        self.assertEqual(machine.oracle_mmio_hits[0xF2916000], 3)
+
 
 if __name__ == '__main__':
     unittest.main()

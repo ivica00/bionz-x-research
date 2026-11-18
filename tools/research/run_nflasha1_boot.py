@@ -72,6 +72,16 @@ def main():
                         help='set CPSR.A on synthetic IRQ entry as in QEMU (E0559)')
     parser.add_argument('--allow-nonsecure-af-writes', action='store_true',
                         help='allow guest CPSR.A/F writes via Cortex-A9 SCR.AW/FW')
+    parser.add_argument('--vfp-d16-mvfr0', action='store_true',
+                        help='emulate VFPv3-D16 MVFR0 in __boottime_vfp_init instead of binary-patching')
+    parser.add_argument('--qemu-cpu-parity', action='store_true',
+                        help='enable QEMU Cortex-A5 CPU parity (async-abort masks, non-secure A/F writes, VFPv3-D16 MVFR0)')
+    parser.add_argument('--qemu-peripherals', action='store_true',
+                        help='enable ported QEMU CXD90045 peripheral models (F2A, Leo, XDMAC, LDEC, rw stubs)')
+    parser.add_argument('--oracle-mmio-trace', type=Path, default=None,
+                        help='QEMU Oracle JSONL trace supplying recorded MMIO read sequences')
+    parser.add_argument('--emmc-image', type=Path, default=None,
+                        help='read-only eMMC backing image for SDHCI 0xF0304000 (requires --qemu-peripherals)')
     parser.add_argument('--stub', action='append', default=[],
                         metavar='ADDRESS=VALUE', help='MMIO read stub (hex)')
     parser.add_argument('--output', type=Path, default=OUT / 'nflasha1-boot-report.json')
@@ -82,6 +92,11 @@ def main():
                         default='nflasha1',
                         help='boot set to load (nflasha1 updater or nflasha3 main)')
     args = parser.parse_args()
+    if args.qemu_cpu_parity:
+        args.mask_async_abort_at_entry = True
+        args.mask_async_abort_on_irq = True
+        args.allow_nonsecure_af_writes = True
+        args.vfp_d16_mvfr0 = True
     if args.thumb_loader_entry is not None and not args.trace_thumb_boundary:
         parser.error('--thumb-loader-entry requires --trace-thumb-boundary')
     if args.thumb_stop and not args.trace_thumb_boundary:
@@ -97,6 +112,10 @@ def main():
             parser.error('Thumb traces require distinct new output files under artifacts')
         for path in paths:
             path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        args.output.resolve().parent.mkdir(parents=True, exist_ok=True)
+        args.serial_output.resolve().parent.mkdir(parents=True, exist_ok=True)
+        log_directory = args.output.resolve().parent
     target_profile = get_profile(args.target)
 
     boot_set = NflashaBootSet.from_evidence(ROOT, args.boot_set)
@@ -126,6 +145,14 @@ def main():
     for item in args.stub:
         address, _, value = item.partition('=')
         stubs[int(address, 0)] = int(value, 0)
+    oracle_mmio_trace = None
+    if args.oracle_mmio_trace is not None:
+        from tools.research.qemu_unicorn_oracle import parse_plugin_jsonl
+        parsed_oracle = parse_plugin_jsonl(args.oracle_mmio_trace)
+        oracle_mmio_trace = {}
+        for ev in parsed_oracle['mmio']:
+            if ev['op'].startswith('R'):
+                oracle_mmio_trace.setdefault(ev['pa'], []).append(ev['val'])
     boot_patches = {}
     if args.lpj_preset and 'calibrate_delay' in symbols:
         # Observed in the updater kernel disassembly: calibrate_delay reads
@@ -150,7 +177,7 @@ def main():
         # instead of relying on an exception-table fixup.  Labelled, not default.
         boot_patches[symbols['start_kernel']] = [
             (symbols['swapper_pg_dir'] - 0x60000000, 4, 0x00100C0E)]
-    if '__boottime_vfp_init' in symbols:
+    if '__boottime_vfp_init' in symbols and not args.vfp_d16_mvfr0:
         # Sony's kernel BUG()s unless the emulated VFP reports D16 (its context
         # code assumes 16 double registers).  Unicorn's VFP model does not match
         # the board exactly, so skip the BUG branch (bne -> b) as a labelled
@@ -198,6 +225,10 @@ def main():
         mask_async_abort_at_entry=args.mask_async_abort_at_entry,
         mask_async_abort_on_irq=args.mask_async_abort_on_irq,
         allow_nonsecure_af_writes=args.allow_nonsecure_af_writes,
+        vfp_d16_mvfr0=args.vfp_d16_mvfr0,
+        qemu_peripherals=args.qemu_peripherals,
+        oracle_mmio_trace=oracle_mmio_trace,
+        emmc_image=args.emmc_image,
         kernel_load=contract.load_addresses['kernel_load'],
         initrd_load=contract.load_addresses['initrd_load'],
         boot_params=contract.load_addresses['boot_params'],
