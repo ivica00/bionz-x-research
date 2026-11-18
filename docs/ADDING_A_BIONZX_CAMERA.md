@@ -237,6 +237,8 @@ Unsupported symbols, UIPC queues, or device nodes stop fail-closed with a `bound
 
 ## Step 5 — Open the pull request
 
+Open a draft pull request once you have a verified result, even if the profile is partial. Link the camera model's tracking issue and post any verified findings that others can use while the pull request is in progress. The [contribution policy](../CONTRIBUTING.MD#work-in-the-main-repository) explains how to coordinate shared work.
+
 Include:
 
 1. **The evidence record** `docs/evidence/NNNN-<short-title>.md` with: date, inputs (firmware

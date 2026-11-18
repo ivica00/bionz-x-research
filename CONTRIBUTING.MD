@@ -2,6 +2,16 @@
 
 Contributions should improve a documented Sony BIONZ X / ILCE-6400 contract, fix a reproducible defect, or clarify evidence and its limits. For larger work, open an issue describing the current boundary, proposed experiment and expected observation.
 
+## Work in the main repository
+
+Coordinate research in [the main repository's issue tracker](https://github.com/ivica00/bionz-x-research/issues) before starting substantial work. Use one tracking issue per camera model, with firmware revisions and open questions recorded in that issue. Post partial findings there and open a draft pull request as soon as you have a verified result. Link the evidence and identify the remaining boundary so others can build on your work.
+
+Use branches or working forks to prepare pull requests. Please avoid launching a separate repository or maintaining a long-lived fork for work that fits the shared platform. If you already maintain one, link prominently to the upstream repository in your README, credit the original contributors, describe your changes, and send reusable fixes and findings upstream in focused pull requests. The [MIT License](LICENSE) requires retaining its copyright and permission notices in copies or substantial portions of the software.
+
+Official releases, roadmap decisions, and maintainer support are coordinated in the main repository. For an issue encountered in a fork, include the fork commit and reproduction steps against the current upstream default branch or an official release. Keep fork-specific support in the fork's tracker.
+
+When preparing release notes, credit contributors by camera model or shared feature and link their pull requests or evidence records. Preserve author attribution when bringing in work from an existing fork.
+
 ## Multi-device BIONZ X support
 
 The execution platform is built against the Sony a6400 but models the shared BIONZ X (`CXD90045`) contracts, so owners of other bodies (a6100, a6600, a7 III, ZV-E10 or similar) can join without forking the code. Start with [docs/ADDING_A_BIONZX_CAMERA.md](docs/ADDING_A_BIONZX_CAMERA.md): it explains the `TargetProfile` schema in `src/a6400/targets/`, the read-only probe in `probes/`, and how to submit a profile with an evidence receipt. A partial, honest profile is a valid contribution; a complete guess is not.

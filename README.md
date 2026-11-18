@@ -91,6 +91,8 @@ Recorded offline suite: **1992 tests** (latest evidence: [E0578](docs/evidence/0
 
 ## How to Help (No Camera Needed)
 
+Please bring BIONZ X research, fixes, and camera support to this repository early. Reuse the tracking issue for your camera model and open a draft pull request with your first verified result. Shared evidence and fixes can then help every compatible body. See the [contribution and attribution policy](CONTRIBUTING.MD#work-in-the-main-repository).
+
 **Top 3 open tasks right now:**
 
 1. **Switch to the rear LCD through stock firmware input (QEMU):** The original LCD layout renders on console 0 with a diagnostic overlay ([E0572](docs/evidence/0572-qemu-a6400-rear-lcd-layout-on-panel.md)). Find the `InputService::getInputEventStatus` key/value that selects it without the overlay, or unblock `CamPig` IRQ 35→36 / `PQD_Ydet` at mode-sequencer step 32 ([E0569](docs/evidence/0569-qemu-sgc1-event-a.md), [QEMU checkpoint](qemu-a6400/STATUS.md)).

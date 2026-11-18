@@ -1,6 +1,7 @@
 ## Summary
 
 <!-- Describe what changed and why. Link any relevant E0xxx evidence record or issue. -->
+<!-- For camera work, link the model's tracking issue. Credit anyone whose research or code this PR incorporates and link the original work or evidence. -->
 
 ## Verification
 
