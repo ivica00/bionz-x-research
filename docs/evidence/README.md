@@ -10,6 +10,7 @@ Current consolidated state: [README research status](../../README.md) and
 
 | ID | Date | Claim |
 | --- | --- | --- |
+| [E0578](0578-a6400-open-gate-3-2-recording-feasibility.md) | 2026-11-18 | Offline `av-cam.bin` / `libObj.so` analysis and Unicorn memory verification map `IMX284` 3:2 modes (`6000×4000` max `10.44 fps`, `1996×1332` `29.97 fps`), `1620×1080` / `3240×2160` DMM entries at `0x63ddf414`, and `ZIMA DVENC` / `MovieRec` gates into a staged Open Gate (3:2) development path. |
 | [E0577](0577-qemu-real-mods-relocation-and-hot-reload.md) | 2026-11-17 | Mod Loader v2 installed in the QEMU guest's original `im.elf` on the camera-captured disk; the camera MenuTouchFull build loaded through per-library relocation, turned ON, was hot-reloaded twice from host rebuilds and turned OFF without a QEMU restart. Inputs on the Linux filesystem cut boot to the menu from 63 s to 35 s. Touch handlers not exercised. |
 | [E0576](0576-mod-loader-v2-reload-request.md) | 2026-11-17 | Mod Loader v2 core consumes a reload request on the UI thread: new SMOD v2 copy loaded and hash-checked, targets checked, old copy OFF with readback, new copy ON with fresh bss. Unicorn scenarios 11–12 pass (TestMod failures, MenuTouchFull). Offline only; not run on camera or QEMU. |
 | [E0575](0575-qemu-mod-loader-v2-compatibility-boundary.md) | 2026-11-17 | Mod Loader v2 and MenuTouchFull v2 harnesses pass offline. The shipped guard does not qualify the QEMU `im.elf` address map, so no hooks were written. |
