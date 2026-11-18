@@ -10,7 +10,7 @@ Loader installation and combined physical test: [E0522](../../docs/evidence/0522
 | `MenuTouchFull.mod` (SMOD, 2940 B, code 2160 B at `0x0700d708`, state 632 B at `0x07143920`) | `334a3dd491d04a87e5318694ac652fca65dfe7cd2575e7e6886620bc282b1b80` |
 
 Copy [MenuTouchFull.mod](MenuTouchFull.mod) to the SD card's `mods/` directory, or stage it under
-`/tmp_bt/mods/` for a single boot. Install the [Mod Loader](../../README.md#short-tutorial--load-a-mod-from-the-sd-card),
+`/tmp_bt/mods/` for a single boot. Install the [Mod Loader](../README.md#option-2-install-on-a-physical-ilce-6400-ram-only),
 then open MENU → Mods → `Menu Touch Full` and press the center button. The `.mod` carries its MTF2
 state header (`SMOD_FLAG_STATE_INIT`).
 
