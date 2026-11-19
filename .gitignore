@@ -22,6 +22,7 @@ assets/reference/*
 *.fdat
 *.tar
 *.bin
+!tools/native_camera/mlv2/prebuilt/**/*.bin
 *.ko
 *.so
 *.elf
