@@ -1,0 +1,49 @@
+{
+  "shim": {
+    "addr": "0x5662760",
+    "bytes": 1000,
+    "cap": 2208,
+    "fnv1a_32": "0xa723f101",
+    "sha256": "87b9f1c546c375fd4ea22048b53d8131003d4a6ad362f243ea25367f569bd5fc",
+    "entries": {
+      "ml_hook_set_root": "0x5662a59",
+      "ml_hook_refresh": "0x5662aa9",
+      "ml_hook_open_item": "0x5662ab9"
+    },
+    "relocs": {
+      "testcmd": [
+        "0x8",
+        "0xac",
+        "0xb8",
+        "0x13c",
+        "0x270",
+        "0x280",
+        "0x288",
+        "0x28c",
+        "0x2cc"
+      ],
+      "view": [
+        "0x4",
+        "0x2d0",
+        "0x328",
+        "0x32c",
+        "0x344",
+        "0x378"
+      ]
+    }
+  },
+  "core": {
+    "bytes": 7832,
+    "file_bytes": 7852,
+    "fnv1a_32": "0x19d28661",
+    "sha256": "f58335566dd7f26552ca3e05b0fbf8407406b4fbd6354bde4e38d1bc5ee971ab"
+  },
+  "request": {
+    "bytes": 1124,
+    "sha256": "99d255c58dc8547b38e1c2a835f122fa88f28a86666e11384b25187b25512f85",
+    "v1_builds": [
+      "sd-standalone-v1",
+      "lifecycle-v1"
+    ]
+  }
+}

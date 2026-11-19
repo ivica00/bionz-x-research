@@ -40,11 +40,16 @@ You can develop, install, and hot-reload real `SMOD v2` mods inside the emulated
 
 Mod Loader v2 ([design & status](../docs/MOD_LOADER_V2_DESIGN.md)) splits a tiny permanent RAM shim from a replaceable position-independent core (`core.bin`), supports relocatable `SMOD v2` mods without fixed code caves, rescans mods live when opening the `Mods` tab, and can be installed regardless of whether the menu was already opened.
 
-1. **Build the loader & mods (WSL):**
+1. **Build the loader & mods (WSL), or use the prebuilt loader:**
+   The camera-qualified loader is already in
+   [`tools/native_camera/mlv2/prebuilt/mlv2-layout-build-4`](../tools/native_camera/mlv2/prebuilt/mlv2-layout-build-4)
+   (`core.bin` SHA-256 `f5833556…71ab`). Arrivederci v5 is
+   [`Arrivederci.mod`](arri_isp/arrivederci/Arrivederci.mod) (129444 bytes, SHA-256 `46c41981…64b7`).
+   To rebuild instead:
    ```bash
    wsl.exe --exec bash tools/native_camera/mlv2/build_wsl.sh artifacts/tests/mlv2-build
    wsl.exe --exec bash mods/menu_touch_full/build_mtf_v2_wsl.sh artifacts/tests/mtf-v2-build
-   wsl.exe --exec bash mods/arri_isp/arrivederci/build_v3_wsl.sh artifacts/tests/arrivederci-v3-build
+   wsl.exe --exec bash mods/arri_isp/arrivederci/build_v2_wsl.sh artifacts/tests/arrivederci-v5-build
    ```
 2. **Stage `.mod` files:** Copy your built `.mod` files (e.g., `MenuTouchFull.mod`, `Arrivederci.mod`) into `mods/` on your SD card (`E:\mods\`) or push them to `/tmp_bt/mods/` over the [Mass Storage debugger](../docs/NATIVE_USB_DEBUGGER.md).
 3. **Install RAM-only via the debugger:**
