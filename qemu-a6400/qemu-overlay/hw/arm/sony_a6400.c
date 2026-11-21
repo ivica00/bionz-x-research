@@ -9,6 +9,7 @@
  *   - SRAM:       0xFE000000 .. 0xFE100000 (1 MiB)
  *   - A9MPCore:   0xF8000000 (GIC CPU @ 0xF8000100, GIC Dist @ 0xF8001000)
  *   - PL011 UART0:0xF2000000 (IRQ 150 -> SPI 118)
+ *   - PL011 UART3:0xF2003000 (IRQ 120 -> SPI 88, null chardev)
  *   - CXD4115 timer: 0xF2403000, channel n -> IRQ 153 + n (E0522)
  *   - 4 x Cortex-A5 (E0522: secondaries released through SRAM mailbox
  *     0xFE005010 + 4 * (cpu - 1) by cxd900x0_smp_init)
@@ -61,6 +62,8 @@
 #define CXD90045_PERIPH_BASE     0xF8000000ULL
 #define CXD90045_UART0_BASE      0xF2000000ULL
 #define CXD90045_UART0_SPI       (150 - 32)
+#define CXD90045_UART3_BASE      0xF2003000ULL
+#define CXD90045_UART3_SPI       (120 - 32)
 #define CXD90045_TIMER_BASE      0xF2403000ULL
 #define CXD90045_TIMER_IRQ0      153
 #define CXD90045_WDT_BASE        0xF2402000ULL
@@ -2407,6 +2410,15 @@ static void sony_a6400_init(MachineState *machine)
     }
 
     pl011_create(CXD90045_UART0_BASE, pic[CXD90045_UART0_SPI], serial_hd(0));
+    /*
+     * UART3 is a second, independent PL011.  The kernel's udif table names it
+     * "uart3" at 0xF2003000 (size 0x1000, IRQ 120) and AMBA-probes it as
+     * uart_devs[3]; without the device the PrimeCell ID reads return 0 and
+     * registration fails.  The stock pl011 already exposes PID 0x00141011 /
+     * CID 0xB105F00D, matching the kernel's expected AMBA IDs.  No second
+     * -serial is passed, so the chardev is NULL and UART0/console is untouched.
+     */
+    pl011_create(CXD90045_UART3_BASE, pic[CXD90045_UART3_SPI], serial_hd(1));
 
     timer = qdev_new("cxd4115-timer");
     sysbus_realize_and_unref(SYS_BUS_DEVICE(timer), &error_fatal);

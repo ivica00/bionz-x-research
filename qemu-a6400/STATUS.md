@@ -3,6 +3,37 @@
 **Declared stimulus:** opt-in, default-off `gate-force-probe=on` (`GATE_FORCE_PROBE=1`) one-shot patches the exact av-cam step-26 producer cbz at PA `0x03874fd0` to a NOP (`cond. PROBE gate-force`), not a fix.
 **Declared stimulus:** opt-in, default-off `entry-force-probe=on` (`ENTRY_FORCE_PROBE=1`) makes the first av-cam entry take the r0 = 1 path while the camera-control state is 240 (`cond. PROBE entry-force`), not a fix.
 
+## PL011 UART3 at 0xF2003000 (2026-11-21 / L0098)
+
+The stock kernel's udif table (VA `0x604DB3D4`, name pointer `0x6044A054` =
+`"uart3"`) gives base `0xF2003000` (`0x604DB4C8`), end `0xF2003FFF`
+(`0x604DB4CC`) and IRQ `120` (`0x78` at `+0x128`, `0x604DB4FC`). The camera's
+`/proc/interrupts` agrees: GIC 120 is `cxd900x0-uart` (25,253 hits), while
+IRQ 150 is `liro-150` with 0 hits (QEMU's certified boot still registers
+UART0/`ttyAM0` on IRQ 150). The `uart_devs[3]` AMBA probe read the PrimeCell ID block at
+`0xF2003FE0..0xF2003FFC` through the `cxd90045.unmodelled` catch-all (eight
+32-bit reads, offsets `0x2003FE0..0x2003FFC`) and got 0, so the baseline
+serial console says `cxd900x0_init: amba_device_register(uart_devs[3])
+failed.` (120 s baseline, line 78).
+
+The board now maps a second stock PL011 at `0xF2003000` (size `0x1000`, GIC
+SPI 88 = IRQ 120, `serial_hd(1)` = NULL because only one `-serial` is
+passed); UART0/console is unchanged. No wrapper is needed: QEMU's `pl011`
+already returns the kernel's expected IDs, PID `0x00141011` and CID
+`0xB105F00D`. qtest (`tests/test_qemu_uart3.py`, qemu sha256
+`5708b5f9…f43d9`) reads both devices' IDs, checks UART0's idle flag register
+(`0x90`), and uses an unowned page (`0xF2004000`) as the catch-all positive
+control; 7/7 checks pass.
+
+A 120 s boot with the certified env (qemu sha256 `5708b5f9…f43d9`, model
+sha256 `e668e8d6…3d9`) now logs `uart3: ttyAM1 at MMIO 0xf2003000 (irq = 120)
+is a AMBA/PL011` and no `amba_device_register` failure. Against a same-commit
+baseline (qemu sha256 `204b4d08…734de7`), exactly the eight ID reads retire
+(87 -> 79 distinct catch-all read offsets; 627 writes unchanged; no new
+offset), and the final sequencer state is identical (index 42, step
+`0x897F`, status/mirror `0x0102`, top/b5_top/b5_opd 1, 43 steps). Console and
+all other devices are untouched.
+
 ## Opt-in bus error in the reserved first MiB (2026-11-19 / E0647)
 
 What the option does:
