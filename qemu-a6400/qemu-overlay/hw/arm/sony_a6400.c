@@ -2667,6 +2667,48 @@ static void sony_a6400_init(MachineState *machine)
     }
 
     /*
+     * L0031: uncovered sub-windows of two more register blocks, modelled by
+     * the same generic cxd90045-camcore rule file (base selects the block
+     * table, window says where this sub-window starts).  Each window is
+     * mapped at -600: above the cxd90045.unmodelled catch-all (-1000) and
+     * below every existing device model, which therefore keep winning:
+     *   (0xF2400000 is left unmodelled: guest-written status words, see
+     *   cxd90045_camcore.c.)
+     *   - 0xF3C00000: 0xF3C04000..0xF3C08FFF; the P2S page
+     *     0xF3C00000..0xF3C00FFF and the evsel block 0xF3C30000 are not
+     *     covered.
+     *   - 0xF2910000: 0xF2912000/0x4000/0x5000; the 18-port GPIO model covers
+     *     only 0x100*18 = 0x1200 bytes (0xF2910000..0xF29111FF), so these
+     *     three pages are outside it, and DFS 0xF2916000 is not covered.
+     */
+    {
+        static const struct {
+            hwaddr base;
+            hwaddr window;
+            uint64_t size;
+            const char *name;
+        } cc_windows[] = {
+            { 0xF3C00000ULL, 0xF3C04000ULL, 0x5000, "cxd90045.camcore-f3c0-4000" },
+            { 0xF2910000ULL, 0xF2912000ULL, 0x1000, "cxd90045.camcore-f291-2000" },
+            { 0xF2910000ULL, 0xF2914000ULL, 0x1000, "cxd90045.camcore-f291-4000" },
+            { 0xF2910000ULL, 0xF2915000ULL, 0x1000, "cxd90045.camcore-f291-5000" },
+        };
+        size_t k;
+
+        for (k = 0; k < ARRAY_SIZE(cc_windows); k++) {
+            DeviceState *cc = qdev_new("cxd90045-camcore");
+
+            qdev_prop_set_string(cc, "name", cc_windows[k].name);
+            qdev_prop_set_uint64(cc, "size", cc_windows[k].size);
+            qdev_prop_set_uint64(cc, "base", cc_windows[k].base);
+            qdev_prop_set_uint64(cc, "window", cc_windows[k].window);
+            sysbus_realize_and_unref(SYS_BUS_DEVICE(cc), &error_fatal);
+            sysbus_mmio_map_overlap(SYS_BUS_DEVICE(cc), 0,
+                                    cc_windows[k].window, -600);
+        }
+    }
+
+    /*
      * Imager / ComboPHY window (E0534).  av-cam keeps absolute pointers
      * here (Leo clk 0xFC021000, MIPI D-PHY register blocks, sensor tables
      * under 0xFC0Axxxx).  Reads of unassigned space are 0, so a

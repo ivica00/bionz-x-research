@@ -1,6 +1,14 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
- * CXD90045 CamCore register blocks.
+ * CXD90045 CamCore and peripheral register blocks.
+ *
+ * This is a generic per-register rule file: every instance selects one rule
+ * table with the "base" property and maps that table's block at a region of
+ * its own.  The "window" property (default 0) says where the mapped sub-window
+ * starts inside the block, so one block table can cover several uncovered
+ * sub-windows (for example the 0xF2910000 block outside the GPIO model).
+ * With "window" 0 the region offset is the block offset, which is how the
+ * three CamCore instances below keep their original behaviour.
  *
  * The av-cam core maps the CamCore windows 1:1 (virtual 0xF30x0000 =
  * physical, see docs/evidence/0564-qemu-ydet-window-configuration-reaches-
@@ -13,6 +21,22 @@
  *                        732 write-only.
  *   0xF3120000 (64 KiB)  L0028: 100 distinct pairs, 13 read offsets,
  *                        87 write-only.
+ *
+ * L0031 adds two more block tables selected by the same "base" property.
+ * Only the uncovered sub-windows are mapped; the GPIO, P2S, timer, SIO and
+ * ADC models keep their own regions:
+ *
+ *   0xF2400000 is NOT modelled here: 23 of its 35 read offsets are written by
+ *                        the guest and +0x1038 is compared with 3 and never
+ *                        satisfied, so a 0-returning table would hide a real
+ *                        status register (L0031 red team).  It stays unmodelled.
+ *   0xF3C00000 (64 KiB)  L0031: 23 read offsets, all RF.  Every baseline read
+ *                        is immediately followed by a write and every reader
+ *                        is ldr/bfi/str on the same word.
+ *   0xF2910000 (64 KiB)  L0031: 16 read offsets outside the 0x1200-byte GPIO
+ *                        model, all Z0.  The readers copy the word to memory
+ *                        or test one status bit; +0x2548/+0x2554 are written
+ *                        by other code but read by that copy getter.
  *
  * The per-block rule tables come from the L0026 spec
  * (loop/scratch/L0026/spec.md, 70/70 reading PCs verified by its red team)
@@ -198,17 +222,87 @@ static const CamCoreRule camcore_rules_f312[] = {
     { 0x2160, CAM_RF,   0xffffffff, "RMW, every read -> write; 0x63cef180" },
 };
 
+/*
+ * 0xF3C00000: one entry per observed read offset (23).  Every baseline read
+ * is immediately followed by a write to the same offset (viol 0) and the
+ * reader is ldr/bfi/str on the same word, so all are RF.  PCs are the Thumb
+ * load instructions (disasm.txt).
+ */
+static const CamCoreRule camcore_rules_f3c0[] = {
+    { 0x4100, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a562; every read -> write" },
+    { 0x4104, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a5a2; every read -> write" },
+    { 0x4108, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a5d4; every read -> write" },
+    { 0x410C, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a5fa; every read -> write" },
+    { 0x4200, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a3b6; every read -> write" },
+    { 0x4204, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a416; every read -> write" },
+    { 0x4220, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a4ee; every read -> write" },
+    { 0x4230, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a552; every read -> write" },
+    { 0x4300, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a1be; every read -> write" },
+    { 0x4304, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a1fe; every read -> write" },
+    { 0x4308, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a230; every read -> write" },
+    { 0x430C, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a256; every read -> write" },
+    { 0x4400, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a266; every read -> write" },
+    { 0x4404, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a2a6; every read -> write" },
+    { 0x4408, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a2d8; every read -> write" },
+    { 0x440C, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a2fe; every read -> write" },
+    { 0x4500, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a30e; every read -> write" },
+    { 0x4504, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a34e; every read -> write" },
+    { 0x4508, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a380; every read -> write" },
+    { 0x450C, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x63b0a3a6; every read -> write" },
+    { 0x8000, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x6384967e; every read -> write" },
+    { 0x8270, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x6384a00c; every read -> write" },
+    { 0x8274, CAM_RF,   0xffffffff, "RMW ldr/bfi/str at 0x6384a036; every read -> write" },
+};
+
+/*
+ * 0xF2910000 outside the 0x1200-byte GPIO model: one entry per observed read
+ * offset (16).  The readers at 0x63a69ca4 copy the word to memory, the two
+ * never-written +0x2540/+0x2550 use the bit getter 0x63a69e78/8c, and no
+ * baseline read is immediately followed by a write; all are Z0.  +0x5010 has
+ * two baseline reads but no CPU reader was seen by rwatch on any of the four
+ * vCPUs (the XDMAC model can read a source address as a bus master); it is
+ * never written and stays 0 as in the baseline.
+ */
+static const CamCoreRule camcore_rules_f291[] = {
+    { 0x2204, CAM_ZERO, 0xffffffff, "copy getter 0x63a69ca4 (ldr, str to memory)" },
+    { 0x2214, CAM_ZERO, 0xffffffff, "copy getter 0x63a69ca4 (ldr, str to memory)" },
+    { 0x2244, CAM_ZERO, 0xffffffff, "copy getter 0x63a69ca4 (ldr, str to memory)" },
+    { 0x2248, CAM_ZERO, 0xffffffff, "copy getter 0x63a69ca4 (ldr, str to memory)" },
+    { 0x2258, CAM_ZERO, 0xffffffff, "copy getter 0x63a69ca4 (ldr, str to memory)" },
+    { 0x2404, CAM_ZERO, 0xffffffff, "copy getter 0x63a69ca4 (ldr, str to memory)" },
+    { 0x2408, CAM_ZERO, 0xffffffff, "copy getter 0x63a69ca4 (ldr, str to memory)" },
+    { 0x2444, CAM_ZERO, 0xffffffff, "copy getter 0x63a69ca4 (ldr, str to memory)" },
+    { 0x2448, CAM_ZERO, 0xffffffff, "copy getter 0x63a69ca4 (ldr, str to memory)" },
+    { 0x2458, CAM_ZERO, 0xffffffff, "copy getter 0x63a69ca4 (ldr, str to memory)" },
+    { 0x2540, CAM_ZERO, 0x00000001, "never written; bit getter 0x63a69e78 (and #1)" },
+    { 0x2548, CAM_ZERO, 0xffffffff, "copy getter 0x63a69ca4; written by other code" },
+    { 0x2550, CAM_ZERO, 0x00000001, "never written; bit getter 0x63a69e8c (and #1)" },
+    { 0x2554, CAM_ZERO, 0xffffffff, "copy getter 0x63a69ca4; written by other code" },
+    { 0x2F04, CAM_ZERO, 0xffffffff, "copy getter 0x63a69ca4 (ldr, str to memory)" },
+    { 0x5010, CAM_ZERO, 0xffffffff, "never written; 2 reads, no CPU reader (rwatch all 4 vCPUs)" },
+};
+
 struct CamCoreState {
     SysBusDevice parent_obj;
     MemoryRegion mr;
     GHashTable *regs;
     uint64_t size;
     uint64_t base;      /* selects the per-block rule table */
+    uint64_t window;    /* mapped sub-window start, 0 = same as base */
     char *name;
     bool trace;
     const CamCoreRule *rules;
     size_t nrules;
 };
+
+/* Block-relative offset of a region access (rule tables are block-relative). */
+static uint64_t camcore_key(const CamCoreState *s, hwaddr off)
+{
+    if (s->window) {
+        return (s->window - s->base) + off;
+    }
+    return off;
+}
 
 static const CamCoreRule *camcore_rule(const CamCoreState *s, uint32_t off)
 {
@@ -225,7 +319,8 @@ static const CamCoreRule *camcore_rule(const CamCoreState *s, uint32_t off)
 static uint64_t camcore_read(void *opaque, hwaddr off, unsigned size)
 {
     CamCoreState *s = opaque;
-    hwaddr w = off & ~3ULL;
+    uint64_t key = camcore_key(s, off);
+    hwaddr w = key & ~3ULL;
     const CamCoreRule *r = camcore_rule(s, w);
     uint32_t v = 0;
 
@@ -243,9 +338,10 @@ static uint64_t camcore_read(void *opaque, hwaddr off, unsigned size)
         v &= (1u << (size * 8)) - 1;
     }
     if (s->trace) {
-        qemu_log("camcore-trace: %s read off 0x%05x size %u value 0x%08x\n",
-                 s->name ? s->name : "cxd90045-camcore", (unsigned)off, size,
-                 v);
+        qemu_log("camcore-trace: %s read off 0x%05x size %u value 0x%08x "
+                 "pa 0x%08x\n",
+                 s->name ? s->name : "cxd90045-camcore", (unsigned)key, size,
+                 v, (unsigned)((s->window ? s->window : s->base) + off));
     }
     return v;
 }
@@ -253,7 +349,8 @@ static uint64_t camcore_read(void *opaque, hwaddr off, unsigned size)
 static void camcore_write(void *opaque, hwaddr off, uint64_t v, unsigned size)
 {
     CamCoreState *s = opaque;
-    hwaddr w = off & ~3ULL;
+    uint64_t key = camcore_key(s, off);
+    hwaddr w = key & ~3ULL;
     uint32_t old = GPOINTER_TO_UINT(g_hash_table_lookup(s->regs,
                                  GUINT_TO_POINTER((guint)w)));
     unsigned sh = (off & 3) * 8;
@@ -261,9 +358,10 @@ static void camcore_write(void *opaque, hwaddr off, uint64_t v, unsigned size)
     uint32_t nv = (old & ~mask) | (((uint32_t)v << sh) & mask);
 
     if (s->trace) {
-        qemu_log("camcore-trace: %s write off 0x%05x size %u value 0x%08x\n",
-                 s->name ? s->name : "cxd90045-camcore", (unsigned)off, size,
-                 (uint32_t)v);
+        qemu_log("camcore-trace: %s write off 0x%05x size %u value 0x%08x "
+                 "pa 0x%08x\n",
+                 s->name ? s->name : "cxd90045-camcore", (unsigned)key, size,
+                 (uint32_t)v, (unsigned)((s->window ? s->window : s->base) + off));
     }
     g_hash_table_insert(s->regs, GUINT_TO_POINTER((guint)w),
                         GUINT_TO_POINTER(nv));
@@ -296,6 +394,14 @@ static void camcore_realize(DeviceState *dev, Error **errp)
         s->rules = camcore_rules_f312;
         s->nrules = ARRAY_SIZE(camcore_rules_f312);
         break;
+    case 0xF3C00000ULL:
+        s->rules = camcore_rules_f3c0;
+        s->nrules = ARRAY_SIZE(camcore_rules_f3c0);
+        break;
+    case 0xF2910000ULL:
+        s->rules = camcore_rules_f291;
+        s->nrules = ARRAY_SIZE(camcore_rules_f291);
+        break;
     default:
         /* 0xF3010000 (the original L0027 instance) and any other base. */
         s->rules = camcore_rules_f301;
@@ -312,6 +418,7 @@ static void camcore_realize(DeviceState *dev, Error **errp)
 static const Property camcore_props[] = {
     DEFINE_PROP_UINT64("size", CamCoreState, size, 0x10000),
     DEFINE_PROP_UINT64("base", CamCoreState, base, 0),
+    DEFINE_PROP_UINT64("window", CamCoreState, window, 0),
     DEFINE_PROP_STRING("name", CamCoreState, name),
     DEFINE_PROP_BOOL("trace", CamCoreState, trace, false),
 };
