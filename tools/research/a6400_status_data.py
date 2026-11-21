@@ -221,18 +221,20 @@ STATUS_SNAPSHOT = StatusSnapshot(
     schema_version=1,
     as_of="2026-11-21",
     latest=EvidenceRef(
-        evidence_id="E0665",
-        path="docs/evidence/0665-qemu-boots-from-the-public-updater.md",
+        evidence_id="E9006",
+        path="docs/evidence/9006-captured-dmm-unit-4092e-authentic-osd-surface.md",
         date="2026-11-21",
-        title="QEMU reaches the a6400 shooting screen and the step-32 wait without a camera capture",
+        title="Captured DMM unit 0x4092e is OSD A/B; an opt-in mapping opens the authentic 640x480 surface",
         demonstrated=(
-            "qemu_packaged_inputs builds a byte-identical emmc.img and powered sub-micro frames from "
-            "Sony's public a6400 updater; stock firmware draws its P-mode OSD and stops at the packaged "
-            "step-32 wait (module 3 0x0326, request 0x032E, Ydet counter 0), read by QMP xp alone."
+            "The preserved nflasha5 DMM table has two 0x4092e records (indices 28 and 32) whose extents are "
+            "OSD A/B: 0x23A80000 and 0x23B16000, size 0x96000, extent id 0x62, handles 0x041C/0x0420. "
+            "An opt-in policy returns the first record; the app allocates the full extent, "
+            "maps /dev/stream to physical 0x23A80000 and writes all 614,400 bytes. viewUnified2.so is loaded."
         ),
         boundary=(
-            "ulogio.bin still comes from the ZV-E10 updater; bars leads to an x02 request set, not E0591's "
-            "step 42; no bars picture on console; zero-filled partitions are not camera content."
+            "The surface is zero at 200M, so the full write is a clear/black frame; UI content and the draw "
+            "trigger are not established. The captured table is a preserved image, not live camera state. "
+            "No camera access."
         ),
         tier="OFFLINE PUBLIC UPDATERS + QEMU",
     ),

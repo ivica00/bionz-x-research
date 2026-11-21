@@ -228,7 +228,33 @@ Registered profiles live in [`src/a6400/targets/`](src/a6400/targets/catalog.py)
 
 Recorded integration baseline: **2091 tests**, with 88 skip records and no failures/errors ([rebase validation and limits](docs/TOOLCHAIN.md#upstream-rebase-integration-2026-11-18)). Skips are not passes. The [late black-screen capture](docs/evidence/0652-qemu-a6400-late-black-screen-scanout-capture.md), [LIRO RAM section analysis](docs/evidence/0644-a6400-liro-ram-section-is-avcam-data.md), [CamCore contributor score](docs/evidence/0637-camcore-f301-contributor-boot-score.md), [USB mode gate](docs/evidence/0589-qemu-usb-mode-gate-and-defrootview.md), and [first firmware-driven live-view frame](docs/evidence/0591-qemu-a6400-first-live-view-frame.md) are separate findings. Earlier narrative highlights are preserved in [docs/archives/readme-latest-progress-2026-11-18.md](docs/archives/readme-latest-progress-2026-11-18.md) and [docs/archives/readme-latest-progress-2026-11-15.md](docs/archives/readme-latest-progress-2026-11-15.md).
 
-![Research status: demonstrated results and remaining boundaries](docs/images/research-status.svg?v=472908163cb1)
+[E9001](docs/evidence/9001-l3-grm-osd-unit-4092e-refusal-and-newselect-timer-fix.md)
+traces `Appframework`'s `CreateFramebuffer(640,480)` to a GRM-MA open for DMM
+unit `0x4092e`: `captured-e0044` refuses it (`-9`, with no captured base or
+handle) and the guest aborts, while checkpoint restore no longer fabricates a
+`sys__newselect` deadline.
+[E9002](docs/evidence/9002-grm-pool-policy-reconcile-and-glcommon-createframebuffer.md)
+fixes checkpoint resume so `--grm-pools` cannot be silently ignored (the
+restored policy is recorded, conflicts fail closed) and records that the
+labelled legacy single-pool boot passes `CreateFramebuffer(640,480)` without
+establishing the `0x4092e` unit mapping.
+[E9003](docs/evidence/9003-glcommon-post-createframebuffer-timer-wait.md) shows
+the next stop is a timer-paced wait: `Appframework` polls `0x00910042` and
+`0x00910041` until `--uipc-timer-service emulated` removes the poll storm, after
+which it idles without loading OSD or `viewUnified2`.
+[E9004](docs/evidence/9004-glcommon-wait-is-20ms-sleep-not-render.md) shows that
+wait is a fixed 20 ms sleep (19,815 us measured), and the 32 MiB surface is
+byte-identical across about 220 ticks: the app is waiting, not rendering.
+[E9005](docs/evidence/9005-rea-provider-limit-and-20ms-sites.md) records that REA
+cannot deep-analyze this ARM ELF on the current Windows host; a direct scan
+finds six 20,000 us sites in `libObj`, only one of which was seen in the early
+wait window.
+[E9006](docs/evidence/9006-captured-dmm-unit-4092e-authentic-osd-surface.md)
+maps unit `0x4092e` to its captured OSD A extent (`0x23A80000`, `0x96000`):
+the app allocates it, maps `/dev/stream` there, writes the full 614,400-byte
+frame (currently a black clear) and loads `viewUnified2.so`.
+
+![Research status: demonstrated results and remaining boundaries](docs/images/research-status.svg?v=435fdbb50c93)
 
 ![Daily automated test suite growth: 2091 tests across 32 days](docs/images/test-growth.svg?v=7c3d215972bb)
 
