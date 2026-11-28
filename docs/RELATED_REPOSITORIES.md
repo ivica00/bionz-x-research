@@ -10,6 +10,13 @@ relevant entries before implementing a new contract or repeating an experiment.
   Descriptions summarize upstream scope, not findings reproduced in this project.
 - 2026-11-27: added voxivoid/a6000-qemu, from its README at commit `62cf3bc`, by
   its author; its machine was ported and re-run here (see the linked receipt).
+- 2026-11-28: added [qn06142/zv-e10-re](https://github.com/qn06142/zv-e10-re),
+  reviewed at commit `9b5debdd5f33f18166fb347a5245ac0c3bdeb3d7` (`2026-11-28`,
+  with consolidated sensor pipeline documentation in
+  `docs/hardware/SENSOR_PIPELINE.md` from commit
+  `5937639cd3e2c55bb367e0d4ee9ca5d2c8fee330`), licensed under `MIT`
+  (`LICENSE.txt`, with `GPL-2.0` headers on derived QEMU/pipeline files under
+  `research/device/zve10_ram_boot/`).
 - This is a reference catalog, not a dependency manifest, compatibility matrix,
   source audit or authorization to run upstream tools. No upstream tools were
   cloned or executed to create it.
@@ -50,6 +57,7 @@ relevant entries before implementing a new contract or repeating an experiment.
 | [Oein/a5000-emulator](https://github.com/Oein/a5000-emulator) | ILCE-5000 full-system QEMU emulation | [README](https://github.com/Oein/a5000-emulator/blob/HEAD/README.md): QEMU overlay, device models, boot hand-off and hardware notes | Earlier camera generation. Re-derive each contract for `CXD90045`; emulated or host-injected behavior is not automatically original-firmware behavior. |
 | [voxivoid/a6000-qemu](https://github.com/voxivoid/a6000-qemu) | ILCE-6000 full-system QEMU emulation (fork of Oein/a5000-emulator) | [README](https://github.com/voxivoid/a6000-qemu/blob/HEAD/README.md): NAND two-stage boot, USB, NFC, Wi-Fi, HDMI; ported here as `sony-a6000` ([receipt](evidence/external-a6000-emulator/README.md)) | `CXD90014` body. Same transfer limits as the a5000 entry; boots only with the owner's NAND dump. |
 | [cokeenet/zve10-qemu](https://github.com/cokeenet/zve10-qemu) | ZV-E10 / `CXD90045` firmware execution, system mapping and menu research | [README](https://github.com/cokeenet/zve10-qemu/blob/HEAD/README.md): QEMU workstream, firmware/system reports, display and menu work | Same SoC family is a comparison lead, not an a6400 profile. Separate stock execution, instrumentation and menu-port results; hardware recovery instructions are not approved procedures here. |
+| [qn06142/zv-e10-re](https://github.com/qn06142/zv-e10-re) (pinned commit `9b5debdd5f33f18166fb347a5245ac0c3bdeb3d7`, `MIT` / `GPL-2.0` device headers) | Reverse engineering of Sony `ZV-E10` (`2.02` / `2.03`, `av-cam.bin` `bc6cba98...`): `IMX284` + `CXD90057`/`CXD90045` DFE sensor bring-up (`Leo` PLL/CRG `0xFC021000`, `64 KiB` DFE ARM coprocessor `dfe_dat.bin` `703f457a...` mailbox `0xFC0300F4..FC`, `SyncSeq` `0xFC080000`, `P2S` Ch 1 `0xFC088000`, `DrvSGC0` `0xFC0A1100`, `SLVS-EC RX` `0xFC0F0000`, `RdcW0` Bayer RAW DMA `0xFC0E1100`), OSAL/UIPC vocabulary, UXC resource formats, `ZVOS` bare-metal RAM runtime, and QEMU `11.1.2` `-M zve10` machine | [README](https://github.com/qn06142/zv-e10-re/blob/9b5debdd5f33f18166fb347a5245ac0c3bdeb3d7/README.md) (`README.md`), `docs/hardware/SENSOR_PIPELINE.md` (commit `5937639cd3e2c55bb367e0d4ee9ca5d2c8fee330`), `research/device/zve10_ram_boot/cxd90057_hw.h`, and `research/device/zve10_ram_boot/cxd90057_pipeline.h` | `dfe_dat.bin` (`65,536` B), `bonobo.bin`, `lif_app.bin`, and `0xFC0xxxxx` front-end MMIO bases match `ILCE-6400` / `ILCE-6400A` (`CXD90045`), whereas `av-cam.bin` code addresses differ per firmware build and must be re-verified against local `ILCE-6400` (`90d515cf...`) / `ILCE-6400A` (`3029a174...`) binaries. Upstream USB Senser `/dev/mem` write scripts, `boot.ko` RAM takeover modules, and firmware update attack-surface/staging scripts are **excluded** from local camera authorization (standing read-only + `tools/devmem_policy.py` rules apply). Upstream standalone `cxd90057_pipeline.h` omits upstream `SYSV` (`0xF3402000`) / `SUGI_CLK` (`0xF3400000`) / `CLKGEN` (`0xF2800000`), which local `av-cam.bin` disassembly identifies as the master `VD` clock feeding `SyncSeq` (`0xFC080030`) and `DrvSGC0` (`trig_mode = 1`). |
 
 ## Firmware formats and storage layouts
 
@@ -67,6 +75,12 @@ relevant entries before implementing a new contract or repeating an experiment.
 | [masterflai/pmca-re-reloaded](https://github.com/masterflai/pmca-re-reloaded) | Cross-platform Rust Sony USB toolkit spanning multiple device generations | [README](https://github.com/masterflai/pmca-re-reloaded/blob/HEAD/README.md): shared GUI/CLI core, device information, settings memory and device support | Inspect the specific protocol/backend. App installation, firmware updates, settings writes and automatic driver handling are not authorized by this reference. |
 | [dino2048/zv-e10-toolkit](https://github.com/dino2048/zv-e10-toolkit) | ZV-E10 Linux service-interface and BootROM/fastboot tooling; reported firmware 2.02/2.03 coverage | [README](https://github.com/dino2048/zv-e10-toolkit/blob/HEAD/README.md): Linux file/backup verification route and separate fastboot route | Keep Linux service observations separate from bare-metal recovery behavior. Bulk reads, mode changes and partition restore require their own scope; upstream hardware receipts do not verify our device. |
 | [YuuLuo/a7c2-service-preload](https://github.com/YuuLuo/a7c2-service-preload) | ILCE-7CM2 firmware 2.01 service-session and temporary loader execution research | [README](https://github.com/YuuLuo/a7c2-service-preload/blob/HEAD/README.md): protocol notes, Jiritsu path behavior, dynamic-loader chain and execution evidence | Newer body and firmware-specific behavior. Preload/file writes are not read-only operations; temporary execution does not imply persistent firmware modification or an a6400 execution path. |
+
+For ZV-E10 OSAL/UIPC notes, USB Senser probes, and `ZVOS` / `boot.ko` RAM runtime
+references, see the `qn06142/zv-e10-re` entry under
+[Emulation and hardware contracts](#emulation-and-hardware-contracts); its
+`/dev/mem` write scripts, `boot.ko` RAM takeover modules, and updater staging
+tooling are excluded from local camera authorization.
 
 ## Cross-generation boot and feature research
 

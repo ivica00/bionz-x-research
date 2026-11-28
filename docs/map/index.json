@@ -28,7 +28,7 @@
     "imaging-pipeline": {
       "title": "Imaging pipeline: color, RAW, RCRAW and recording paths",
       "doc": "docs/map/imaging-pipeline.md",
-      "reviewed": "2026-11-27",
+      "reviewed": "2026-11-28",
       "evidence_span": "see record index"
     },
     "l2-kernel-boot": {
@@ -70,7 +70,7 @@
     "qemu-a6400": {
       "title": "QEMU sony-a6400 machine",
       "doc": "docs/map/qemu-a6400.md",
-      "reviewed": "2026-11-26",
+      "reviewed": "2026-11-28",
       "evidence_span": "see record index"
     },
     "storage-sd-backup": {
@@ -704,7 +704,9 @@
         "C17",
         "C18",
         "C19",
-        "C20"
+        "C20",
+        "C21",
+        "C22"
       ],
       "inactive_claims": []
     },
@@ -762,6 +764,30 @@
         "C14",
         "C15",
         "C16"
+      ],
+      "inactive_claims": []
+    },
+    "img.dfe-sgc0-syncseq": {
+      "area": "imaging-pipeline",
+      "name": "CXD90045 DFE sensor front-end: DrvSGC0, SyncSeq, DfeTop, SLVS-EC and RdcW0",
+      "kind": "device",
+      "address": null,
+      "aliases": [
+        "DrvSGC0",
+        "SyncSeq",
+        "DfeTop",
+        "RdcW0",
+        "SLVS-EC",
+        "0xFC0A1100",
+        "0xFC080000",
+        "0xFC0E1100",
+        "0xFC0F00B0",
+        "dfe_dat.bin"
+      ],
+      "anchor": "imaging-pipeline.md#img-dfe-sgc0-syncseq",
+      "active_claims": [
+        "C23",
+        "C24"
       ],
       "inactive_claims": []
     },
@@ -1525,7 +1551,9 @@
         "C16",
         "C21",
         "C22",
-        "C23"
+        "C23",
+        "C25",
+        "C28"
       ],
       "inactive_claims": []
     },
@@ -1548,7 +1576,9 @@
         "C08",
         "C10",
         "C18",
-        "C23"
+        "C23",
+        "C26",
+        "C27"
       ],
       "inactive_claims": [
         "R02",
@@ -1617,6 +1647,44 @@
       "inactive_claims": [
         "R01"
       ]
+    },
+    "qemu.dfe-sensor": {
+      "area": "qemu-a6400",
+      "name": "Opt-in CXD90045 DFE sensor front-end in QEMU (dfe-sensor=on, sysv-cold=on)",
+      "kind": "device",
+      "address": null,
+      "aliases": [
+        "cxd90045-dfe",
+        "dfe-sensor",
+        "sysv-cold",
+        "0xFC0A1100",
+        "0xFC080000",
+        "0xFC0E1100"
+      ],
+      "anchor": "qemu-a6400.md#qemu-dfe-sensor",
+      "active_claims": [
+        "C28"
+      ],
+      "inactive_claims": []
+    },
+    "qemu.avcam-map": {
+      "area": "qemu-a6400",
+      "name": "av-cam.bin Phase 0 static index and domain shards",
+      "kind": "tool",
+      "address": null,
+      "aliases": [
+        "avcam_indexer",
+        "avcam_map.sqlite",
+        "avcam_progress.md",
+        "S1A",
+        "S2B"
+      ],
+      "anchor": "qemu-a6400.md#qemu-avcam-map",
+      "active_claims": [
+        "C26",
+        "C27"
+      ],
+      "inactive_claims": []
     },
     "proc.storage-ringbuffer": {
       "area": "storage-sd-backup",
@@ -11382,6 +11450,70 @@
         "file": "0755-a6400-live-tcp-10bit-hevc-raw-and-craw2-ddr-check.md"
       }
     ],
+    "E0756": [
+      {
+        "area": "imaging-pipeline",
+        "kind": "claim",
+        "id": "C21",
+        "file": "0756-opengate-a1-libmpr-hook-sites-and-guarded-test-kit.md",
+        "status": "verified-physical"
+      }
+    ],
+    "E0757": [
+      {
+        "area": "imaging-pipeline",
+        "kind": "claim",
+        "id": "C21",
+        "file": "0757-opengate-a1-captured-libmpr-hooks-and-fast-loop-kit.md",
+        "status": "verified-physical"
+      },
+      {
+        "area": "imaging-pipeline",
+        "kind": "claim",
+        "id": "C23",
+        "file": "0757-qemu-dfe-sgc0-syncseq-slvsec-rdcw0-pipeline.md",
+        "status": "verified-offline"
+      },
+      {
+        "area": "imaging-pipeline",
+        "kind": "claim",
+        "id": "C24",
+        "file": "0757-qemu-dfe-sgc0-syncseq-slvsec-rdcw0-pipeline.md",
+        "status": "inference"
+      },
+      {
+        "area": "qemu-a6400",
+        "kind": "claim",
+        "id": "C28",
+        "file": "0757-qemu-dfe-sgc0-syncseq-slvsec-rdcw0-pipeline.md",
+        "status": "verified-offline"
+      }
+    ],
+    "E0758": [
+      {
+        "area": "imaging-pipeline",
+        "kind": "claim",
+        "id": "C22",
+        "file": "0758-codec10-high-bit-depth-cortex-a5-codec.md",
+        "status": "verified-physical"
+      }
+    ],
+    "E0759": [
+      {
+        "area": "qemu-a6400",
+        "kind": "claim",
+        "id": "C26",
+        "file": "0759-avcam-phase0-index-shards-and-research-map.md",
+        "status": "verified-offline"
+      },
+      {
+        "area": "qemu-a6400",
+        "kind": "claim",
+        "id": "C27",
+        "file": "0759-avcam-phase0-index-shards-and-research-map.md",
+        "status": "verified-offline"
+      }
+    ],
     "E9001": [
       {
         "area": "l3-userspace",
@@ -11631,6 +11763,13 @@
         "kind": "claim",
         "id": "C07",
         "file": "external-zve10-menu/README.md",
+        "status": "verified-offline"
+      },
+      {
+        "area": "qemu-a6400",
+        "kind": "claim",
+        "id": "C25",
+        "file": "external-a6000-emulator/README.md",
         "status": "verified-offline"
       }
     ],
@@ -14050,6 +14189,19 @@
     ],
     "0756-opengate-a1-libmpr-hook-sites-and-guarded-test-kit.md": [
       "imaging-pipeline"
+    ],
+    "0757-opengate-a1-captured-libmpr-hooks-and-fast-loop-kit.md": [
+      "imaging-pipeline"
+    ],
+    "0757-qemu-dfe-sgc0-syncseq-slvsec-rdcw0-pipeline.md": [
+      "imaging-pipeline",
+      "qemu-a6400"
+    ],
+    "0758-codec10-high-bit-depth-cortex-a5-codec.md": [
+      "imaging-pipeline"
+    ],
+    "0759-avcam-phase0-index-shards-and-research-map.md": [
+      "qemu-a6400"
     ],
     "0763-qemu-f290-captured-value.md": [
       "qemu-a6400"

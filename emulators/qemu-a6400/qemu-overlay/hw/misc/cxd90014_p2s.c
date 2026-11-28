@@ -37,6 +37,7 @@
  */
 
 #include "qemu/osdep.h"
+#include "hw/misc/cxd90045_dfe.h"
 #include "hw/core/sysbus.h"
 #include "hw/core/irq.h"
 #include "hw/core/qdev-properties.h"
@@ -94,6 +95,8 @@ struct P2SState {
     uint64_t base;
     uint32_t channel_id;
     bool trace_transfers;
+    bool frame_sync_gated;
+    bool waiting_frame_sync;
     unsigned trace_count;
     unsigned traced_transfer;
 
@@ -252,26 +255,8 @@ static void p2s_done(void *opaque)
     p2s_update(s);
 }
 
-static void p2s_start(P2SState *s, hwaddr mode_off)
+static void p2s_schedule_transfer(P2SState *s, hwaddr mode_off)
 {
-    /* payload words 0x340.. hold one byte each; log the first 8 starts */
-    static int left = 8;
-    uint32_t b[16];
-
-    for (int i = 0; i < 16; i++) {
-        b[i] = R(P2S_DATA_START + 4 * i) & 0xff;
-    }
-    p2s_apply_imx284_frame(s);
-    if (left > 0) {
-        left--;
-        fprintf(stderr, "[P2S] start n=0x%02x %08x %08x %08x %08x\n",
-                R(0x30C) & 0xff,
-                b[0] << 24 | b[1] << 16 | b[2] << 8 | b[3],
-                b[4] << 24 | b[5] << 16 | b[6] << 8 | b[7],
-                b[8] << 24 | b[9] << 16 | b[10] << 8 | b[11],
-                b[12] << 24 | b[13] << 16 | b[14] << 8 | b[15]);
-    }
-    s->busy = true;
     if (s->trace_transfers && s->trace_count < P2S_TRACE_LIMIT) {
         char slots[2 * P2S_DATA_WORDS + 1];
         static const char hex[] = "0123456789abcdef";
@@ -293,6 +278,44 @@ static void p2s_start(P2SState *s, hwaddr mode_off)
     }
     timer_mod(s->done, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
               XFER_US * SCALE_US);
+}
+
+static void p2s_on_frame_sync(void *opaque, int n, int level)
+{
+    P2SState *s = opaque;
+
+    if (level && s->waiting_frame_sync) {
+        s->waiting_frame_sync = false;
+        p2s_apply_imx284_frame(s);
+        p2s_schedule_transfer(s, s->channel_id ? 0xE00 : 0x800);
+    }
+}
+
+static void p2s_start(P2SState *s, hwaddr mode_off)
+{
+    /* payload words 0x340.. hold one byte each; log the first 8 starts */
+    static int left = 8;
+    uint32_t b[16];
+
+    for (int i = 0; i < 16; i++) {
+        b[i] = R(P2S_DATA_START + 4 * i) & 0xff;
+    }
+    if (left > 0) {
+        left--;
+        fprintf(stderr, "[P2S] start n=0x%02x %08x %08x %08x %08x\n",
+                R(0x30C) & 0xff,
+                b[0] << 24 | b[1] << 16 | b[2] << 8 | b[3],
+                b[4] << 24 | b[5] << 16 | b[6] << 8 | b[7],
+                b[8] << 24 | b[9] << 16 | b[10] << 8 | b[11],
+                b[12] << 24 | b[13] << 16 | b[14] << 8 | b[15]);
+    }
+    s->busy = true;
+    if (s->frame_sync_gated && (R(mode_off) & 3u) == 0) {
+        s->waiting_frame_sync = true;
+        return;
+    }
+    p2s_apply_imx284_frame(s);
+    p2s_schedule_transfer(s, mode_off);
 }
 
 static uint64_t p2s_read(void *opaque, hwaddr off, unsigned size)
@@ -363,6 +386,7 @@ static void p2s_reset(DeviceState *dev)
     s->imx_mode_desc = "unconfigured";
     s->status = 0;
     s->busy = false;
+    s->waiting_frame_sync = false;
     timer_del(s->done);
     if (s->traced_transfer) {
         fprintf(stderr, "[P2S trace] reset id=%u\n", s->traced_transfer);
@@ -381,6 +405,16 @@ static bool p2s_get_imx_streaming(Object *obj, Error **errp)
 {
     P2SState *s = CXD_P2S(obj);
     return s->imx_valid[0x00B3] && s->imx_regs[0x00B3] == 0x90;
+}
+
+bool cxd90014_p2s_imx284_streaming(DeviceState *dev)
+{
+    if (!dev) {
+        return false;
+    }
+    P2SState *s = CXD_P2S(dev);
+    return s->imx_valid[0x00B3] && s->imx_regs[0x00B3] == 0x90 &&
+           !s->waiting_frame_sync;
 }
 
 static void p2s_get_imx_int(Object *obj, Visitor *v, const char *name,
@@ -411,6 +445,7 @@ static void p2s_init(Object *obj)
     memory_region_init_io(&s->mr, obj, &p2s_ops, s, "p2s", P2S_SIZE);
     sysbus_init_mmio(SYS_BUS_DEVICE(obj), &s->mr);
     sysbus_init_irq(SYS_BUS_DEVICE(obj), &s->irq);
+    qdev_init_gpio_in_named(DEVICE(obj), p2s_on_frame_sync, "frame-sync", 1);
     s->done = timer_new_ns(QEMU_CLOCK_VIRTUAL, p2s_done, s);
 }
 
@@ -418,6 +453,7 @@ static const Property p2s_props[] = {
     DEFINE_PROP_UINT64("base", P2SState, base, P2S_DEFAULT_BASE),
     DEFINE_PROP_UINT32("channel-id", P2SState, channel_id, 0),
     DEFINE_PROP_BOOL("trace-transfers", P2SState, trace_transfers, false),
+    DEFINE_PROP_BOOL("frame-sync-gated", P2SState, frame_sync_gated, false),
 };
 
 static const VMStateDescription vmstate_cxd_p2s = {

@@ -20,7 +20,7 @@ Status labels ([definitions](docs/STATUS_LABELS.md)): **Verified on camera** · 
 | [Rear LCD 60 fps](docs/evidence/0740-rear-lcd-60fps-high-quality-mod.md) | 59.94 fps live view on the rear LCD with Display Quality High | **Emulator only** ([E0740](docs/evidence/0740-rear-lcd-60fps-high-quality-mod.md)) |
 | [WiFiSync](mods/wifisync/README.md) | Background `.JPG`/`.ARW` transfer over 5 GHz Wi-Fi | **Not run on a camera yet:** camera half verified offline ([E0698](docs/evidence/0698-wifisync-camera-side-mod.md)); the 5 GHz AP gate is open |
 | Film Simulations | Picture Profile film looks built in [BIONZ Look Lab](docs/BIONZ_LOOK_LAB.md) | **Not run on a camera yet:** looks fitted offline ([E0682](docs/evidence/0682-still-jpeg-film-look-domain-and-recipe-recalibration.md)) |
-| [Open Gate 3:2](mods/open_gate/README.md) | Full-sensor 3:2 movie recording | **Emulator only:** Unicorn + QEMU ([E0741](docs/evidence/0741-open-gate-32-mode10-smod-v2.md)). Live RAM tests on `ILCE-6400` restore cleanly but no 3:2 clip is recorded yet ([E0752](docs/evidence/0752-a6400-open-gate-a12-to-a19-dual-pipe-live.md)). Guarded [test kit](mods/opengate_a1/kit/README.md): **not run on a camera yet**; its MP4 hooks need a rebuild first ([E0756](docs/evidence/0756-opengate-a1-libmpr-hook-sites-and-guarded-test-kit.md)) |
+| [Open Gate 3:2](mods/open_gate/README.md) | Full-sensor 3:2 movie recording | **Emulator only:** Unicorn + QEMU ([E0741](docs/evidence/0741-open-gate-32-mode10-smod-v2.md)). Live RAM tests on `ILCE-6400` restore cleanly but no 3:2 clip is recorded yet ([E0752](docs/evidence/0752-a6400-open-gate-a12-to-a19-dual-pipe-live.md)). Guarded [test kit](mods/opengate_a1/kit/README.md) ran once on `ILCE-6400`: OpenGateA1 applies and restores cleanly but the **output stays 16:9** and its MP4 hooks are not on the recording path ([E0757](docs/evidence/0757-opengate-a1-captured-libmpr-hooks-and-fast-loop-kit.md)) |
 
 More mods, formats and per-build notes: [mods/README.md](mods/README.md).
 
@@ -88,9 +88,9 @@ python -m unittest discover -s tests -q
 
 The last recorded full offline suite had 2091 tests (2026-11-18, [`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md)); skips are never counted as passes.
 
-![Research status: demonstrated results and remaining boundaries](docs/images/research-status.svg?v=4bb999d06aab)
+![Research status: demonstrated results and remaining boundaries](docs/images/research-status.svg?v=4f73cd467a85)
 
-[Test suite growth over time](docs/images/test-growth.svg) · [Current technical state](docs/CURRENT_STATE.md) · [Knowledge map](docs/map/README.md)
+[Test suite growth over time](docs/images/test-growth.svg) · [av-cam.bin deep-analysis progress](docs/images/avcam-status.svg) · [Current technical state](docs/CURRENT_STATE.md) · [Knowledge map](docs/map/README.md)
 
 ### Repository map
 

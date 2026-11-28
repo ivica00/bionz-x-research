@@ -39,7 +39,7 @@ index 4233a80..f0bc619 100644
  arm_common_ss.add(when: 'CONFIG_VEXPRESS', if_true: files('vexpress.c'))
  
  arm_common_ss.add(files('boot.c'))
-+arm_common_ss.add(when: 'CONFIG_SONY_A6400', if_true: files('sony_a6400.c', '../misc/cxd90014_sio.c', '../misc/cxd90014_gpio.c', '../misc/cxd90014_adc.c', '../misc/cxd90014_evsel.c', '../misc/cxd90014_regfile.c', '../misc/cxd90014_vph.c', '../display/dmp_smaph.c', '../display/dmp_shader.c', '../display/cxd90045_hdmi_cec.c', '../misc/cxd90014_sa.c', '../misc/cxd90014_p2s.c', '../misc/cxd90045_camcore.c', '../misc/cxd90045_i2c.c', '../misc/cxd90045_tpu.c', '../misc/cxd90045_touch.c', '../misc/cxd90045_bcm4339.c', '../misc/cxd90045_audio.c', '../misc/cxd90045_lens.c', '../usb/cxd90045_dwc3.c', '../misc/cxd90045_cam.c', '../misc/cxd90045_jpeg.c'))
++arm_common_ss.add(when: 'CONFIG_SONY_A6400', if_true: files('sony_a6400.c', '../misc/cxd90014_sio.c', '../misc/cxd90014_gpio.c', '../misc/cxd90014_adc.c', '../misc/cxd90014_evsel.c', '../misc/cxd90014_regfile.c', '../misc/cxd90014_vph.c', '../display/dmp_smaph.c', '../display/dmp_shader.c', '../display/cxd90045_hdmi_cec.c', '../misc/cxd90014_sa.c', '../misc/cxd90014_p2s.c', '../misc/cxd90045_camcore.c', '../misc/cxd90045_i2c.c', '../misc/cxd90045_tpu.c', '../misc/cxd90045_touch.c', '../misc/cxd90045_bcm4339.c', '../misc/cxd90045_audio.c', '../misc/cxd90045_lens.c', '../usb/cxd90045_dwc3.c', '../misc/cxd90045_cam.c', '../misc/cxd90045_jpeg.c', '../misc/cxd90045_dfe.c'))
  
  hw_common_arch += {'arm': arm_common_ss}
 diff --git a/hw/cpu/a9mpcore.c b/hw/cpu/a9mpcore.c

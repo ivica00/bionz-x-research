@@ -81,6 +81,10 @@ class TestCheck(KitTestCase):
         report = kit.check(cam, self.spec, self.identity)
         self.assertEqual(report.verdict, "NOT READY")
         self.assertTrue(any("hook tkhd_hook_tramp" in r for r in report.reasons))
+        # The live search names the exact build_v2_wsl.sh line that would fix it.
+        for hook in self.spec.hooks:
+            fix = f'--hook "0x{hook.ref_va - 0xF480:08x}:{hook.stock.hex()}:{hook.name}"'
+            self.assertTrue(any(fix in r for r in report.reasons), fix)
 
     def test_partial_screen_state_is_not_ready(self):
         cell = self.spec.vu_offsets[0] + self.spec.vu_words[0][0]
@@ -98,11 +102,29 @@ class TestCheck(KitTestCase):
         self.assertEqual(writes, [])
 
     @unittest.skipUnless(CAPTURED_LIBMPR.is_file(), "captured libmpr.so is local-only")
-    def test_captured_camera_libmpr_does_not_hold_the_hook_bytes(self):
+    def test_captured_camera_libmpr_holds_the_hook_bytes_at_the_declared_offsets(self):
         data = CAPTURED_LIBMPR.read_bytes()
         for hook in self.spec.hooks:
-            self.assertNotEqual(data[hook.offset:hook.offset + len(hook.stock)], hook.stock, hook.name)
-            self.assertEqual(data.find(hook.stock), hook.offset - 0xF480, hook.name)
+            self.assertEqual(data[hook.offset:hook.offset + len(hook.stock)], hook.stock, hook.name)
+            self.assertEqual(kit.find_unique(data, hook.stock), [hook.offset], hook.name)
+            local = kit.locate_hook_local(ROOT, self.identity, hook)
+            self.assertEqual(local["found_offset"], f"0x{hook.offset:x}")
+            self.assertEqual(local["shift"], "+0x0")
+
+    def test_hooks_target_the_captured_build_offsets(self):
+        self.assertEqual({h.name: h.offset for h in self.spec.hooks},
+                         {"tkhd_hook_tramp": 0x8612AC, "stsd_hook_tramp": 0x8615F4})
+
+    def test_tcp_debugger_without_mem_is_refused_with_a_remedy(self):
+        cam = kit.SimulatedCamera(self.spec, self.identity, transport="tcp", ops="info,read,exec,ps")
+        with self.assertRaises(kit.KitError) as ctx:
+            kit.check(cam, self.spec, self.identity)
+        self.assertIn("tcp-debugd-build-8", str(ctx.exception))
+
+    def test_logs_are_read_without_tail(self):
+        kit.check(self.cam, self.spec, self.identity)
+        self.assertFalse(any(c.startswith("tail ") for c in self.cam.commands))
+        self.assertIn(f"read {kit.REMOTE_LOG}", self.cam.commands)
 
 
 class TestApply(KitTestCase):
@@ -159,6 +181,26 @@ class TestVerifyAndPutback(KitTestCase):
         report = kit.verify(self.cam, self.spec, self.identity)
         self.assertEqual(report.verdict, "MIXED")
         self.assertTrue(any("OFF" in n for n in report.notes))
+        site = self.spec.av_patches[1]
+        self.assertTrue(any(f"site #1 PA 0x{site.pa:08X}: neither stock nor patched; found 48879" in r
+                            for r in report.reasons), report.reasons)
+        self.assertIn("klog_tail", report.facts)
+
+    def test_on_without_hooks_is_mixed(self):
+        self.staged()
+        self.cam.toggle(True, hooks=False)
+        report = kit.verify(self.cam, self.spec, self.identity)
+        self.assertEqual(report.verdict, "MIXED")
+        self.assertTrue(any("MP4 hooks are not installed" in r for r in report.reasons))
+
+    def test_hook_lines_after_recording_are_reported(self):
+        self.staged()
+        self.cam.toggle(True)
+        self.cam.record_clip()
+        report = kit.verify(self.cam, self.spec, self.identity)
+        self.assertEqual(report.verdict, "APPLIED")
+        self.assertTrue(any("tkhd kind=5 3840x2160 -> 3840x2560" in n for n in report.notes), report.notes)
+        self.assertTrue(any("stsd rewritten 3840x2160 -> 3840x2560" in n for n in report.notes))
 
     def test_putback_while_on_keeps_the_mod(self):
         self.staged()
@@ -190,6 +232,87 @@ class TestExport(KitTestCase):
         self.assertIn("APPLIED", steps[2])
         self.assertTrue(steps[3].startswith("putback after OFF: STOCK"))
         self.assertIn("NOT READY", steps[4])
+        self.assertIn("--hook", steps[4])
+        self.assertIn("REFUSED", steps[5])
+
+
+def make_smod(spec, code=b"\x00\xbf" * 64):
+    """Minimal SMOD v2 with the spec's hooks (template = loader jump + fixup word), laid out like pack_mod_v2."""
+    import struct
+    from tools.research.reload_mod import fnv1a_32
+    hooks = b""
+    for i, h in enumerate(spec.hooks):
+        tmpl = kit.HOOK_JUMP_PREFIX + struct.pack("<I", 0x609 + 0x10 * i)
+        hooks += struct.pack("<IBB2x", h.ref_va, len(h.stock), 8) + h.stock.ljust(16, b"\0") + tmpl.ljust(16, b"\0")
+    name = b"OpenGate A1".ljust(32, b"\0")
+    header = struct.pack("<3I", 0x444F4D53, 2, 0) + name + struct.pack("<6I", len(code), fnv1a_32(code), 0, 0, 0,
+                                                                         len(spec.hooks))
+    return header + hooks + code
+
+
+class TestReload(KitTestCase):
+    def enabled(self):
+        self.ready()
+        kit.write_receipt(self.apply(make_smod(self.spec, b"\x01\xbf" * 64)), self.private)
+        self.cam.toggle(True)
+
+    def run_reload(self, ok=True, data=None):
+        data = data or make_smod(self.spec)
+        return kit.reload(self.cam, self.spec, self.identity, data, lambda _q: True, timeout=5,
+                          wait=lambda _s: self.cam.core_consumes_reload(ok), say=lambda _m: None)
+
+    def test_reload_swaps_the_enabled_copy_and_checks_hooks_and_code(self):
+        self.enabled()
+        report = self.run_reload()
+        self.assertEqual(report.verdict, "RELOADED", report.reasons)
+        self.assertTrue(report.facts["hooks_point_to_new_copy"])
+        self.assertTrue(report.facts["resident_code_matches_file"])
+        self.assertNotIn(kit.RELOAD_REQ, self.cam.files)
+
+    def test_refused_reload_reports_the_loader_log(self):
+        self.enabled()
+        report = self.run_reload(ok=False)
+        self.assertEqual(report.verdict, "RELOAD REFUSED")
+        self.assertTrue(any("refused" in line for line in report.facts["loader_log_tail"]))
+
+    def test_reload_needs_an_enabled_mod(self):
+        with self.assertRaises(kit.KitError):
+            self.run_reload()
+        self.assertNotIn(kit.RELOAD_REQ, self.cam.files)
+
+    def test_reload_refuses_a_mod_with_other_hook_targets(self):
+        self.enabled()
+        data = bytearray(make_smod(self.spec))
+        data[68:72] = (0x079B472C).to_bytes(4, "little")  # the old updater-build tkhd target
+        with self.assertRaises(kit.KitError):
+            self.run_reload(data=bytes(data))
+
+
+class TestWatch(KitTestCase):
+    def test_watch_follows_toggle_and_logs_until_applied(self):
+        import contextlib
+        self.ready()
+        kit.write_receipt(self.apply(), self.private)
+        said = []
+        actions = iter([lambda: None, lambda: self.cam.toggle(True)])
+
+        def wait(_s):
+            next(actions, lambda: None)()
+
+        result = kit.watch(lambda: contextlib.nullcontext(self.cam), self.spec, until="APPLIED", wait=wait,
+                           say=said.append, max_polls=10)
+        self.assertTrue(result["reached"])
+        self.assertTrue(any("REACHED" in s for s in said))
+        self.assertTrue(any("log=APPLIED screen=patched" in s for s in said), said)
+
+    def test_watch_reports_a_restart(self):
+        import contextlib
+        said = []
+        steps = iter([lambda: setattr(self.cam, "uptime", 3.0)])
+        result = kit.watch(lambda: contextlib.nullcontext(self.cam), self.spec,
+                           wait=lambda _s: next(steps, lambda: None)(), say=said.append, max_polls=3)
+        self.assertEqual(result["restarts"], 1)
+        self.assertTrue(any("RESTART" in s for s in said))
 
 
 class TestIdentity(unittest.TestCase):

@@ -1,0 +1,544 @@
+{
+  "schema_version": 1,
+  "domain": "2C",
+  "title": "ISP, imaging pipeline and AE/AF/AWB front end",
+  "phase": 2,
+  "milestone": "M3",
+  "summary": "CamCore 0xF3000000/0xF3010000 register programming, CC: 3D LUT, EC_Gamma, dcv_psf/spica/PP_Detail, Ydet statistics, CamPig, face/tracking and adjustment.",
+  "owner": "unassigned",
+  "status": "UNMAPPED",
+  "image": {
+    "sha256": "90d515cfec8b936f1ba9a69dcac462816b880297752a652474d67c4bba39125e",
+    "base": "0x635c6000"
+  },
+  "questions": [
+    "Which 0xF300/0xF301/0xF310..0xF312 windows are programmed for a still versus a live-view frame, and in what order?",
+    "What is the CC: 3D LUT / Q10 matrix / EC_Gamma byte layout and where does the pipeline read it?",
+    "What does the PQD Ydet producer publish, and what makes the step-32 wait pass legitimately?",
+    "Which AE/AF/AWB statistics does av-cam compute, and which are consumed by im.elf?"
+  ],
+  "deliverable": "Imaging register sequence and data-format specification for the smallest pipeline that produces a live-view frame. Blocks M3.",
+  "scope": {
+    "commands": 0,
+    "tags": 30,
+    "mmio_pages": 24,
+    "abi": 0,
+    "functions": 156
+  },
+  "items": {
+    "commands": [],
+    "tags": [
+      {
+        "tag": "ADJ",
+        "strings": 27,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "ASTRA",
+        "strings": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "Astra",
+        "strings": 43,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "CC",
+        "strings": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "CCNR",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "CMP",
+        "strings": 25,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "CMR",
+        "strings": 22,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "FACE",
+        "strings": 72,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "GOLFSHOT",
+        "strings": 64,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "PP_DetailBWBalance",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "PP_DetailCrispening",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "PP_DetailHighlightDetailSet",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "PP_DetailLevel",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "PP_DetailLimit",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "PP_DetailMode",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "PP_DetailVHBalance",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "STAPLE",
+        "strings": 9,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "Staple",
+        "strings": 49,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "TRK",
+        "strings": 339,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "cmp_fill",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "cmp_fill_validArea",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "cmp_resizeMirror",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "ee_frate_mode_by_evf",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "ee_frate_mode_by_hdmi",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "ee_frate_mode_req",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "ee_frate_mode_req_hi_speed",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "face_det_on_fc_internal",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "face_det_on_internal",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "face_priority_tracking_mode",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "tag": "face_record_on",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      }
+    ],
+    "mmio": [
+      {
+        "page": "0xf3000000",
+        "literal_loads": 42,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3002000",
+        "literal_loads": 21,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3003000",
+        "literal_loads": 87,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf300c000",
+        "literal_loads": 4,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf300d000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3010000",
+        "literal_loads": 10,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3011000",
+        "literal_loads": 4,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3014000",
+        "literal_loads": 4,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3015000",
+        "literal_loads": 27,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3100000",
+        "literal_loads": 24,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3102000",
+        "literal_loads": 6,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3103000",
+        "literal_loads": 88,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3111000",
+        "literal_loads": 4,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3114000",
+        "literal_loads": 4,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3115000",
+        "literal_loads": 16,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3120000",
+        "literal_loads": 19,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3121000",
+        "literal_loads": 7,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3122000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3123000",
+        "literal_loads": 3,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3124000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3126000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3184000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf3192000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      },
+      {
+        "page": "0xf31df000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2C"
+        }
+      }
+    ],
+    "abi": []
+  },
+  "functions": {
+    "total": 156,
+    "unmapped": 156,
+    "located": 0,
+    "decompiled": 0,
+    "spec_ready": 0,
+    "entry_points": [
+      "0x6395103a",
+      "0x63950b9e",
+      "0x63bb52ec",
+      "0x63756cb8",
+      "0x63bb4610",
+      "0x636b5c5a",
+      "0x63756ef0",
+      "0x63951512",
+      "0x6395162a",
+      "0x63848ff4",
+      "0x638492ac",
+      "0x6375e3f8"
+    ]
+  },
+  "notes": []
+}

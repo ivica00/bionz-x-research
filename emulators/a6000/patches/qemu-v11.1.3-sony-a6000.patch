@@ -35,7 +35,7 @@ index f0bc619..34196bf 100644
 --- a/hw/arm/meson.build
 +++ b/hw/arm/meson.build
 @@ -114,3 +114,5 @@ arm_common_ss.add(files('boot.c'))
- arm_common_ss.add(when: 'CONFIG_SONY_A6400', if_true: files('sony_a6400.c', '../misc/cxd90014_sio.c', '../misc/cxd90014_gpio.c', '../misc/cxd90014_adc.c', '../misc/cxd90014_evsel.c', '../misc/cxd90014_regfile.c', '../misc/cxd90014_vph.c', '../display/dmp_smaph.c', '../display/dmp_shader.c', '../display/cxd90045_hdmi_cec.c', '../misc/cxd90014_sa.c', '../misc/cxd90014_p2s.c', '../misc/cxd90045_camcore.c', '../misc/cxd90045_i2c.c', '../misc/cxd90045_tpu.c', '../misc/cxd90045_touch.c', '../misc/cxd90045_bcm4339.c', '../misc/cxd90045_audio.c', '../misc/cxd90045_lens.c', '../usb/cxd90045_dwc3.c', '../misc/cxd90045_cam.c', '../misc/cxd90045_jpeg.c'))
+ arm_common_ss.add(when: 'CONFIG_SONY_A6400', if_true: files('sony_a6400.c', '../misc/cxd90014_sio.c', '../misc/cxd90014_gpio.c', '../misc/cxd90014_adc.c', '../misc/cxd90014_evsel.c', '../misc/cxd90014_regfile.c', '../misc/cxd90014_vph.c', '../display/dmp_smaph.c', '../display/dmp_shader.c', '../display/cxd90045_hdmi_cec.c', '../misc/cxd90014_sa.c', '../misc/cxd90014_p2s.c', '../misc/cxd90045_camcore.c', '../misc/cxd90045_i2c.c', '../misc/cxd90045_tpu.c', '../misc/cxd90045_touch.c', '../misc/cxd90045_bcm4339.c', '../misc/cxd90045_audio.c', '../misc/cxd90045_lens.c', '../usb/cxd90045_dwc3.c', '../misc/cxd90045_cam.c', '../misc/cxd90045_jpeg.c', '../misc/cxd90045_dfe.c'))
  
  hw_common_arch += {'arm': arm_common_ss}
 +# sony-a6000 (CXD90014) shares these device models with sony-a6400
@@ -337,7 +337,7 @@ index d87d14c..d7e9940 100644
  
  static void gpio_class_init(ObjectClass *klass, const void *data)
 diff --git a/hw/misc/cxd90014_vph.c b/hw/misc/cxd90014_vph.c
-index 523dd61..1f4aa3f 100644
+index 8d81f3d..963622a 100644
 --- a/hw/misc/cxd90014_vph.c
 +++ b/hw/misc/cxd90014_vph.c
 @@ -6,6 +6,9 @@
@@ -362,10 +362,10 @@ index 523dd61..1f4aa3f 100644
 +     * ILCE-6400 and are not established for CXD90014.
 +     */
 +    bool scan_without_arm;
-     QEMUTimer *tick, *lower, *vtick, *vlower;
+     QEMUTimer *tick, *lower, *vtick, *vlower, *sysv_1v_timer;
      qemu_irq irq_sysv, irq_v101, irq_v102;
      qemu_irq vd_out;                /* -> evsel engine frame (source 29) */
-@@ -165,7 +176,7 @@ static void vph_tick(void *opaque)
+@@ -181,7 +192,7 @@ static void vph_tick(void *opaque)
      /* Compose the frame now, with this frame's arm state, exactly like the hardware scanout.
       * Lazy composition on screendump would sample an arbitrary moment and could show a blank
       * surface for a frame the guest did arm. */
@@ -374,7 +374,7 @@ index 523dd61..1f4aa3f 100644
          vph_update(s);
      }
      s->aif_started = 0;
-@@ -290,7 +301,8 @@ static void vph_compose(VphState *s, uint32_t *dst, uint32_t W, uint32_t H,
+@@ -306,7 +317,8 @@ static void vph_compose(VphState *s, uint32_t *dst, uint32_t W, uint32_t H,
      }
      /* Same per-frame contract as hardware: no composition unless the guest armed the channel for
       * this frame (and left the enable bit set). */
@@ -384,7 +384,7 @@ index 523dd61..1f4aa3f 100644
          g_autofree uint8_t *row = g_malloc(lb);
          uint32_t ow = lb / bpp;
          uint32_t oh = osd_scale ? H : MIN(lines, H);
-@@ -346,7 +358,8 @@ static bool vph_update(void *opaque)
+@@ -362,7 +374,8 @@ static bool vph_update(void *opaque)
       * on the camera -- exactly the divergence this model exists to remove.
       */
      bool osd_on = (R(0x144) & 2u) != 0;
@@ -394,7 +394,7 @@ index 523dd61..1f4aa3f 100644
      /*
       * A channel armed between two vsyncs belongs to the frame being scanned, so
       * the pending arm composes as well as the arm latched at the last vsync.
-@@ -360,7 +373,7 @@ static bool vph_update(void *opaque)
+@@ -376,7 +389,7 @@ static bool vph_update(void *opaque)
          surf = qemu_console_surface(s->con);
      }
      vph_compose(s, surface_data(surf), W, H, yuv_on, 0, 2,
@@ -403,7 +403,7 @@ index 523dd61..1f4aa3f 100644
      qemu_console_update_full(s->con);
      return true;
  }
-@@ -442,7 +455,7 @@ static void vph_write(void *opaque, hwaddr off, uint64_t v, unsigned size)
+@@ -458,7 +471,7 @@ static void vph_write(void *opaque, hwaddr off, uint64_t v, unsigned size)
       * VPH_140_PANEL_MODE.  A guest clear is accepted but does not take effect,
       * because the physical panel stage keeps running and the guest's read-back
       * is what its supervisor loop compares against. */
@@ -412,23 +412,14 @@ index 523dd61..1f4aa3f 100644
          uint32_t keep = R(0x140) & VPH_140_STICKY;
          uint32_t next = keep | (uint32_t)v;
          if (next != (uint32_t)v) {
-@@ -576,11 +589,16 @@ static const VMStateDescription vmstate_cxd_vph = {
-     }
+@@ -617,6 +630,7 @@ static const VMStateDescription vmstate_cxd_vph = {
+ 
+ static const Property vph_props[] = {
+     DEFINE_PROP_BOOL("sysv-cold", VphState, sysv_cold, false),
++    DEFINE_PROP_BOOL("scan-without-arm", VphState, scan_without_arm, false),
  };
  
-+static const Property vph_props[] = {
-+    DEFINE_PROP_BOOL("scan-without-arm", VphState, scan_without_arm, false),
-+};
-+
  static void vph_class_init(ObjectClass *klass, const void *data)
- {
-     DeviceClass *dc = DEVICE_CLASS(klass);
-     dc->realize = vph_realize;
-     dc->vmsd = &vmstate_cxd_vph;
-+    device_class_set_props(dc, vph_props);
-     device_class_set_legacy_reset(dc, vph_reset);
- }
- 
 diff --git a/hw/misc/meson.build b/hw/misc/meson.build
 index 23265f6..f035b4c 100644
 --- a/hw/misc/meson.build

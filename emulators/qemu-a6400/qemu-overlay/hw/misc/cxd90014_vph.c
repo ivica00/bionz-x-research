@@ -68,9 +68,12 @@ struct VphState {
     uint32_t aif_started;           /* bit k: AIF channel k was armed since the last vsync */
     uint32_t osd_visible;           /* ch53 was armed in the frame that just ended */
     uint32_t line_visible;          /* ch54 was armed in the frame that just ended */
-    QEMUTimer *tick, *lower, *vtick, *vlower;
+    QEMUTimer *tick, *lower, *vtick, *vlower, *sysv_1v_timer;
     qemu_irq irq_sysv, irq_v101, irq_v102;
     qemu_irq vd_out;                /* -> evsel engine frame (source 29) */
+    qemu_irq sysv_vd_out;           /* -> DFE SyncSeq 1V clock (60 Hz) */
+    bool sysv_cold;
+    bool sysv_running;
     QemuConsole *con;
     uint32_t w, h;
     QemuConsole *hdmi_con;          /* line output (HDMI) */
@@ -113,11 +116,24 @@ static bool vph_panel_stage_running(VphState *s)
  * (IRQ 101/102) keeps its own 60 Hz timer [?].
  */
 #define V_US 33367
+#define SYSV_1V_NS 16683333LL /* 1,201,200 ticks @ 72 MHz (0x00125430) */
 
 static void vph_compose(VphState *s, uint32_t *dst, uint32_t W, uint32_t H,
                         bool yuv_on, int ky, int ko, unsigned bpp,
                         bool osd_scale, bool osd_armed);
 static bool vph_update(void *opaque);
+
+static void vph_sysv_1v_tick(void *opaque)
+{
+    VphState *s = opaque;
+    int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+
+    if (!s->sysv_running) {
+        return;
+    }
+    qemu_irq_pulse(s->sysv_vd_out);
+    timer_mod(s->sysv_1v_timer, now + SYSV_1V_NS);
+}
 
 static void vph_vlower(void *opaque)
 {
@@ -486,6 +502,16 @@ static void sysv_write(void *opaque, hwaddr off, uint64_t v, unsigned size)
 {
     VphState *s = opaque;
     s->sysv[off / 4] = v;
+    if (!s->sysv_running && v != 0 &&
+        (off == 0x010 || off == 0x020 || off == 0x02C ||
+         off == 0x030 || off == 0x100)) {
+        int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+        s->sysv_running = true;
+        timer_mod(s->vtick, now + V_US * SCALE_US);
+        if (s->sysv_vd_out) {
+            timer_mod(s->sysv_1v_timer, now + SYSV_1V_NS);
+        }
+    }
 }
 
 static const MemoryRegionOps vph_ops = {
@@ -502,16 +528,27 @@ static const MemoryRegionOps sysv_ops = {
 static void vph_reset(DeviceState *dev)
 {
     VphState *s = CXD_VPH(dev);
+    int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
+
     memset(s->vph, 0, sizeof(s->vph));
     memset(s->sysv, 0, sizeof(s->sysv));
     s->frame = 0;
     s->aif_started = 0;
     s->osd_visible = 0;
     s->line_visible = 0;
-    timer_mod(s->tick, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
-              NANOSECONDS_PER_SECOND / 60);
-    timer_mod(s->vtick, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
-              V_US * SCALE_US);
+    timer_mod(s->tick, now + NANOSECONDS_PER_SECOND / 60);
+    timer_del(s->sysv_1v_timer);
+    if (s->sysv_cold) {
+        s->sysv_running = false;
+        timer_del(s->vtick);
+        timer_del(s->vlower);
+    } else {
+        s->sysv_running = true;
+        timer_mod(s->vtick, now + V_US * SCALE_US);
+        if (s->sysv_vd_out) {
+            timer_mod(s->sysv_1v_timer, now + SYSV_1V_NS);
+        }
+    }
 }
 
 static void vph_realize(DeviceState *dev, Error **errp)
@@ -540,7 +577,9 @@ static void vph_init(Object *obj)
     s->lower = timer_new_ns(QEMU_CLOCK_VIRTUAL, vph_lower, s);
     s->vtick = timer_new_ns(QEMU_CLOCK_VIRTUAL, vph_vtick, s);
     s->vlower = timer_new_ns(QEMU_CLOCK_VIRTUAL, vph_vlower, s);
+    s->sysv_1v_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, vph_sysv_1v_tick, s);
     qdev_init_gpio_out(DEVICE(obj), &s->vd_out, 1);
+    qdev_init_gpio_out_named(DEVICE(obj), &s->sysv_vd_out, "sysv-vd", 1);
     qdev_init_gpio_in_named(DEVICE(obj), vph_hdmi_tmds, "hdmi-tmds", 1);
 }
 
@@ -576,11 +615,16 @@ static const VMStateDescription vmstate_cxd_vph = {
     }
 };
 
+static const Property vph_props[] = {
+    DEFINE_PROP_BOOL("sysv-cold", VphState, sysv_cold, false),
+};
+
 static void vph_class_init(ObjectClass *klass, const void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
     dc->realize = vph_realize;
     dc->vmsd = &vmstate_cxd_vph;
+    device_class_set_props(dc, vph_props);
     device_class_set_legacy_reset(dc, vph_reset);
 }
 

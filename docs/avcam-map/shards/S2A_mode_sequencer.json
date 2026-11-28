@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "domain": "2A",
+  "title": "Mode sequencer, camera state machine and diagnostics",
+  "phase": 2,
+  "milestone": "M3",
+  "summary": "The stepping state machine observed at steps 12/26/32/42, the state cache, diagnostic commands and VD_Sequence frame sequencing.",
+  "owner": "unassigned",
+  "status": "UNMAPPED",
+  "image": {
+    "sha256": "90d515cfec8b936f1ba9a69dcac462816b880297752a652474d67c4bba39125e",
+    "base": "0x635c6000"
+  },
+  "questions": [
+    "What are the numbered sequencer steps, their guards and their timeouts, and which step does a healthy boot stop at?",
+    "What does the state cache hold, who writes it, and which reader gates step 32/42?",
+    "Which diagnostic commands ([CDIAG], [DBGCMD]) change state machine behaviour, and which are safe to replay?",
+    "How does VD_Sequence relate to VPH frames and the Ydet wait?"
+  ],
+  "deliverable": "State-machine table: states, transitions, guards, timeouts and the minimal sequence to reach live view. Blocks M3.",
+  "scope": {
+    "commands": 0,
+    "tags": 25,
+    "mmio_pages": 0,
+    "abi": 0,
+    "functions": 20
+  },
+  "items": {
+    "commands": [],
+    "tags": [
+      {
+        "tag": "CDIAG",
+        "strings": 37,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "DBGCMD",
+        "strings": 89,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "PMV",
+        "strings": 16,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "RE",
+        "strings": 30,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "RECPin",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "RESTART",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "RecLevel",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "RedEyeReductionMode",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "RefocusPoint_X",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "RefocusPoint_Y",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "Release",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "SEQID",
+        "strings": 4,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "STATECACHE",
+        "strings": 31,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "rev_af_mode",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "seqClippingDecCallback",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "seqSRotateCallBack",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "seqStitchCallBack",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "seq_bigImageClippingDecode",
+        "strings": 4,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "seq_bigImageEncode",
+        "strings": 6,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "seq_bigImageResizeEncode",
+        "strings": 4,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "seq_brcEncode",
+        "strings": 8,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "seq_makePanoramaMakerNoteData",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "seq_panoramaClippingDecode",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "seq_panoramaParallelStitch",
+        "strings": 12,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      },
+      {
+        "tag": "seq_panoramaResize",
+        "strings": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2A"
+        }
+      }
+    ],
+    "mmio": [],
+    "abi": []
+  },
+  "functions": {
+    "total": 20,
+    "unmapped": 20,
+    "located": 0,
+    "decompiled": 0,
+    "spec_ready": 0,
+    "entry_points": [
+      "0x6368eb5c",
+      "0x6368ec34"
+    ]
+  },
+  "notes": []
+}
