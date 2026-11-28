@@ -50,7 +50,7 @@
     stepMap: {},
     pendingInstallSelection: null,
     usbDriver: null,
-    wizard: { preset: "ram", detectTimer: null, ready: false },
+    wizard: { preset: "ram", detectTimer: null, detecting: false, ready: false },
     practice: false,
   };
 
@@ -1285,8 +1285,12 @@
   }
 
   async function wizardDetect() {
+    if (state.wizard.detecting) return;
+    state.wizard.detecting = true;
+    const practice = state.practice;
     try {
       const res = await apiCall("detect_and_prepare");
+      if (state.practice !== practice || res.busy) return;
       state.camera = res.camera;
       state.toolchain = res.toolchain;
       if (res.usb_driver) state.usbDriver = res.usb_driver;
@@ -1301,15 +1305,18 @@
       renderWizard();
       if (d.ready) {
         stopWizardPolling();
-        refreshWizardLedger();
+        await refreshWizardLedger();
       }
     } catch (err) {
       setConnectStatus(`Could not check the camera: ${friendly(err.message)}`, false);
+    } finally {
+      state.wizard.detecting = false;
     }
   }
 
   function startWizardPolling() {
     stopWizardPolling();
+    resetWizardLedger();
     wizardDetect();
     state.wizard.detectTimer = setInterval(() => { if (!state.pollTimer) wizardDetect(); }, 4000);
   }
@@ -1321,10 +1328,18 @@
     }
   }
 
+  function resetWizardLedger() {
+    document.getElementById("wiz-ledger").textContent = "Connect the camera to see what this app changed on it.";
+    document.getElementById("btn-wiz-undo-last").disabled = true;
+    document.getElementById("btn-wiz-restore-stock").disabled = true;
+  }
+
   async function refreshWizardLedger() {
     const box = document.getElementById("wiz-ledger");
+    const practice = state.practice;
     try {
       const led = await apiCall("get_ledger");
+      if (state.practice !== practice) return;
       const active = led.active || [];
       box.innerHTML = active.length
         ? `<div>Saved changes this app made on ${esc(led.camera?.model_name || "this camera")}:</div><ul>${active.map((e) => `<li>${esc(e.label)} <span class="tool-card-detail">(${esc(e.at)})</span></li>`).join("")}</ul>`
@@ -1332,7 +1347,7 @@
       document.getElementById("btn-wiz-undo-last").disabled = !active.length;
       document.getElementById("btn-wiz-restore-stock").disabled = !active.length;
     } catch (err) {
-      box.textContent = "Connect the camera to see what this app changed on it.";
+      if (state.practice === practice) resetWizardLedger();
     }
   }
 
@@ -1418,7 +1433,6 @@
     initializeSelections(state.catalog);
     renderAll();
     renderWizard();
-    refreshWizardLedger();
   }
 
   async function setPractice(on) {

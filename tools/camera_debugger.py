@@ -412,10 +412,17 @@ def wait_for_msc(timeout=30, poll=1.0):
     from pmca.usb.sony import SonyMscExtCmdDevice
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        with importDriver(None) as driver:
-            devices = [d for d in listDevices(driver, True) if isinstance(d, SonyMscExtCmdDevice)]
-        if devices:
-            return True
+        try:
+            with importDriver(None) as driver:
+                if any(isinstance(d, SonyMscExtCmdDevice) for d in listDevices(driver, True)):
+                    return True
+        except Exception as exc:
+            # PMCA can format the signed Windows HRESULT 0x800700AA (ERROR_BUSY).
+            if str(exc).lower() not in (
+                'mtp sendcommand failed: 0x-7ff8ff56',
+                'mtp sendcommand failed: 0x800700aa',
+            ):
+                raise
         time.sleep(poll)
     return False
 

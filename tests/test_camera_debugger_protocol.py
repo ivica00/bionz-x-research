@@ -1,5 +1,10 @@
+from contextlib import nullcontext
 import struct
+from types import SimpleNamespace
 import unittest
+from unittest.mock import Mock, patch
+
+from tools import camera_debugger
 from tools.camera_debugger import (Debugger, DebuggerError, ProtocolError, HEADER, MAGIC,
                                   MAX_DATA, FRAME_SIZE, RECOVER_ARG, encode, decode)
 
@@ -142,6 +147,25 @@ class DebuggerV2ProtocolTests(unittest.TestCase):
         self.assertEqual(analysis['boot_count'],1)
         self.assertTrue(verification['verified'])
         self.assertEqual(parsed['klog.address'],0x035A5000)
+
+
+class MassStorageWaitTests(unittest.TestCase):
+    def test_reopens_usb_scan_after_windows_mtp_reports_busy(self):
+        list_devices = Mock(side_effect=[
+            Exception('MTP SendCommand failed: 0x-7ff8ff56'),
+            [object()],
+        ])
+        import_driver = Mock(side_effect=lambda _: nullcontext(object()))
+        modules = {
+            'pmca.commands.usb': SimpleNamespace(importDriver=import_driver, listDevices=list_devices),
+            'pmca.usb.sony': SimpleNamespace(SonyMscExtCmdDevice=object),
+        }
+        with patch.dict('sys.modules', modules), patch.object(camera_debugger.time, 'sleep') as sleep:
+            self.assertTrue(camera_debugger.wait_for_msc())
+
+        self.assertEqual(import_driver.call_count, 2)
+        self.assertEqual(list_devices.call_count, 2)
+        sleep.assert_called_once_with(1.0)
 
 
 if __name__=='__main__': unittest.main()
