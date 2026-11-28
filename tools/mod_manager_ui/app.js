@@ -182,7 +182,7 @@
     } else if (cam.state === "msc_verified") {
       subEl.textContent = "Mass Storage Ready · 1-Click will bootstrap debugger";
     } else if (cam.state === "msc_blocked") {
-      subEl.textContent = `Blocked (${cam.bootstrap_mode})`;
+      subEl.textContent = cam.detail || "Automatic installation blocked";
     } else {
       subEl.textContent = "Unsupported model · Use Onboarding Dump";
     }
@@ -1273,13 +1273,16 @@
       return { ready: false, searching: true, text: "Plugging in the practice camera..." };
     }
     if (st === "msc_unsupported") {
-      return { ready: false, unsupported: true, text: `${cam.model_name || "This camera"} is not supported yet. Nothing was changed. You can send a read-only diagnostics file to help add it.` };
+      return { ready: false, stopPolling: true, unsupported: true, text: `${cam.model_name || "This camera"} is not supported yet. Nothing was changed. You can send a read-only diagnostics file to help add it.` };
     }
     if (st === "msc_blocked") {
-      return { ready: false, text: cam.detail || "This camera/firmware combination is blocked for automatic install." };
+      return { ready: false, stopPolling: true, text: cam.detail || "This camera/firmware combination is blocked for automatic install." };
     }
-    if (switched && switched.length) {
+    if (switched?.some(attempt => attempt.sent)) {
       return { ready: false, searching: true, text: "Found the camera in a different USB mode and asked it to switch. If nothing happens in a few seconds, set USB Connection to Auto and replug." };
+    }
+    if (cam?.detail && !/no sony camera/i.test(cam.detail)) {
+      return { ready: false, searching: true, text: `Could not identify the camera. ${cam.detail}` };
     }
     return { ready: false, searching: true, text: "Looking for your camera... (this keeps checking by itself)" };
   }
@@ -1303,8 +1306,8 @@
       renderCameraPill();
       renderDriverRestoreBanner();
       renderWizard();
+      if (d.ready || d.stopPolling) stopWizardPolling();
       if (d.ready) {
-        stopWizardPolling();
         await refreshWizardLedger();
       }
     } catch (err) {

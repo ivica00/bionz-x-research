@@ -138,20 +138,37 @@ def ensure_payload_binaries(
     return resolved
 
 
+class CameraIdentityError(RuntimeError):
+    """A Sony USB camera enumerated, but its identity could not be read."""
+
+    def __init__(self, message: str, model_name: str = ""):
+        super().__init__(message)
+        self.model_name = model_name
+
+
 def detect_msc_camera(driver_name: str | None = None) -> dict[str, str]:
     """Query connected Sony camera model, product code, and firmware in MSC mode."""
-    from pmca.commands.usb import importDriver, getDevice
+    from pmca.commands.usb import importDriver, listDevices
     from pmca.usb.sony import SonyExtCmdCamera, SonyExtCmdDevice, SonyUpdaterCamera
 
     with importDriver(driver_name) as driver:
-        device = getDevice(driver)
-        if not device or not isinstance(device, SonyExtCmdDevice):
+        devices = list(listDevices(driver))
+        if len(devices) > 1:
+            raise RuntimeError(
+                'Multiple Sony USB devices were reported. Connect only one camera and scan again.'
+            )
+        if not devices or not isinstance(devices[0], SonyExtCmdDevice):
             raise RuntimeError(
                 'No Sony camera found in Mass Storage / MTP mode. '
                 'Connect the camera in normal Mass Storage mode and try again.'
             )
-        ext = SonyExtCmdCamera(device)
-        info = ext.getCameraInfo()
+        device = devices[0]
+        try:
+            info = SonyExtCmdCamera(device).getCameraInfo()
+        except Exception as exc:
+            raise CameraIdentityError(
+                f'Sony camera detected over USB, but its model could not be read ({exc}).'
+            ) from exc
         identity = {
             'model_name': str(info.modelName).strip(),
             'model_code': str(info.modelCode).strip(),
@@ -160,9 +177,15 @@ def detect_msc_camera(driver_name: str | None = None) -> dict[str, str]:
         spec = find_debugger_target_by_model(identity['model_name'])
         if spec is not None and spec.bootstrap_mode != 'senser_ff01':
             return identity
-        updater = SonyUpdaterCamera(device)
-        updater.init()
-        firmware_old, _ = updater.getFirmwareVersion()
+        try:
+            updater = SonyUpdaterCamera(device)
+            updater.init()
+            firmware_old, _ = updater.getFirmwareVersion()
+        except Exception as exc:
+            raise CameraIdentityError(
+                f'{identity["model_name"]} detected over USB, but its firmware version could not be read ({exc}).',
+                model_name=identity['model_name'],
+            ) from exc
         identity['firmware_version'] = str(firmware_old).strip()
         return identity
 

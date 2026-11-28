@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import base64
+from contextlib import nullcontext
 import hashlib
 import json
 from pathlib import Path
 import struct
 import tempfile
 import threading
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 import urllib.error
@@ -28,6 +30,7 @@ from src.a6400.mod_manager.catalog import (
     remove_custom_mod,
 )
 from src.a6400.mod_manager.sd_sync import execute_sd_sync, list_sd_drives, plan_sd_sync
+from tools.setup_usb_debugger import detect_msc_camera
 from src.a6400.mod_manager.smod import (
     SMOD_MAGIC,
     SMOD_V2_NO_FIXUP,
@@ -521,6 +524,44 @@ class TestToolsBundle(unittest.TestCase):
 
 
 class TestCameraService(unittest.TestCase):
+    def test_enumerated_camera_identity_failures_are_visible_and_block_install(self):
+        camera_info = SimpleNamespace(modelName="ILCE-7M3", modelCode="12345")
+        with tempfile.TemporaryDirectory() as tmp:
+            transport = _FakeTransport()
+            service = CameraService(root=PROJECT_ROOT, data_dir=Path(tmp), transport=transport)
+            for failed_field in ("model", "firmware version"):
+                with self.subTest(failed_field=failed_field):
+                    ext = mock.Mock()
+                    ext.getCameraInfo.return_value = camera_info
+                    updater = mock.Mock()
+                    if failed_field == "model":
+                        ext.getCameraInfo.side_effect = RuntimeError("probe failed")
+                    else:
+                        updater.getFirmwareVersion.side_effect = RuntimeError("probe failed")
+                    modules = {
+                        "pmca.commands.usb": SimpleNamespace(
+                            importDriver=lambda _: nullcontext(), listDevices=lambda _: [object()],
+                        ),
+                        "pmca.usb.sony": SimpleNamespace(
+                            SonyExtCmdDevice=object, SonyExtCmdCamera=lambda _: ext,
+                            SonyUpdaterCamera=lambda _: updater,
+                        ),
+                    }
+                    with (
+                        mock.patch.dict("sys.modules", modules),
+                        mock.patch.object(transport, "detect_msc_identity", side_effect=detect_msc_camera),
+                        mock.patch.object(transport, "debugger_session") as debugger_session,
+                    ):
+                        camera = service.detect_camera()
+
+                    self.assertTrue(camera["connected"])
+                    self.assertEqual(camera["state"], "msc_blocked")
+                    self.assertEqual(camera["model_name"], "ILCE-7M3" if failed_field == "firmware version" else None)
+                    self.assertIn(f"{failed_field} could not be read (probe failed)", camera["detail"])
+                    plan = service.plan_install({}, {}, camera, {})
+                    self.assertIn(camera["detail"], plan["blocking_errors"])
+                    debugger_session.assert_not_called()
+
     def test_debugger_ready_install_and_cleanup(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)

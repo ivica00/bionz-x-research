@@ -23,7 +23,7 @@ from tools import camera_debugger as cd
 from tools.deploy_native_usb_debugger import read_preload_safe, upload_and_verify_debugger
 from tools.research.reload_mod import IM_PID, REQ as RELOAD_REQ, RESULT as RELOAD_RESULT
 from tools.research.reload_mod import hook_bytes, parse_result, parse_smod_v2
-from tools.setup_usb_debugger import build_onboarding_bundle, detect_msc_camera
+from tools.setup_usb_debugger import CameraIdentityError, build_onboarding_bundle, detect_msc_camera
 
 from . import driver_broker, usb_driver
 from .ledger import KIND_DEBUGGER, KIND_TWEAK, CameraLedger, b64, unb64
@@ -450,6 +450,21 @@ class CameraService:
         msc_error: str | None = None
         try:
             msc_identity = self.transport.detect_msc_identity()
+        except CameraIdentityError as exc:
+            return {
+                "connected": True,
+                "state": "msc_blocked",
+                "transport": "msc",
+                "debugger_active": False,
+                "model_name": exc.model_name or None,
+                "model_code": None,
+                "firmware_version": None,
+                "qualification": "unverified",
+                "bootstrap_mode": "unknown",
+                "mlv2_hook_state": "none",
+                "staged_mods": [],
+                "detail": str(exc),
+            }
         except Exception as exc:
             msc_error = f"{type(exc).__name__}: {exc}"
 
