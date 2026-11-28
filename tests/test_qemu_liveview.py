@@ -74,7 +74,7 @@ class QemuLiveViewPipelineTests(unittest.TestCase):
         return int(fields[1], 0) if len(fields) > 1 else None
 
     def test_default_machine_keeps_liveview_blocks_unmodelled(self):
-        proc, _ = self.start_qtest('sony-a6400')
+        proc, _ = self.start_qtest('sony-a6400,ddrb-control=off')
         pending = [b'']
         self.assertEqual(self.qtest(proc, pending, f'readl {GPIO_P0:#x}') & 4, 0)
         self.qtest(proc, pending, f'writel {YDET_WIN:#x} 14')

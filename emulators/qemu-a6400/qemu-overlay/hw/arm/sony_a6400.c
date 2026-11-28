@@ -1409,7 +1409,11 @@ typedef struct CxdDdrbControl {
     bool allow_self_refresh;
 } CxdDdrbControl;
 
-static bool sony_a6400_ddrb_control;
+/* Default on since L0128 (human decision 2026-11-25): the native DDR-B
+ * idle/active sequence (E0650) is state-neutral for the boot (F-0091) and
+ * serves the rank-idle poll at +0xA0. ddrb-control=off restores the old
+ * unmodelled behaviour. */
+static bool sony_a6400_ddrb_control = true;
 
 static uint64_t cxd90045_ddrb_read(void *opaque, hwaddr offset, unsigned size)
 {
@@ -3799,6 +3803,20 @@ static const Cxd90045F292Rule cxd90045_f290_rules[] = {
       "write-only; the value is stored but never read back (F-0104) (L0116)" },
     { 0x0C4, CXD90045_F292_ZERO,
       "kernel clk-init write/read pair; read returns 0 (F-0104) (L0116)" },
+};
+
+/*
+ * L0128b: with ddrb-control on by default the UPM/DFS chain (E0650) writes
+ * these three clock/reset-group words; write-only in the captured boot
+ * (F-0128).  Each value is the one write from the L0128b boot log.
+ */
+static const Cxd90045F292Rule cxd90045_f290e_rules[] = {
+    { 0x004, CXD90045_F292_ZERO,
+      "write-only in the captured L0128 boot (one write 0); read returns 0, the catch-all value (L0128b)" },
+    { 0x008, CXD90045_F292_ZERO,
+      "write-only in the captured L0128 boot (one write 0); read returns 0, the catch-all value (L0128b)" },
+    { 0x210, CXD90045_F292_ZERO,
+      "write-only in the captured L0128 boot (one write 0); read returns 0, the catch-all value (L0128b)" },
 };
 
 /*
@@ -6215,6 +6233,15 @@ static void sony_a6400_init(MachineState *machine)
                          ARRAY_SIZE(cxd90045_f290_rules));
 
     /*
+     * L0128b: three write-only clock/reset-group words in the 0xF290E000
+     * page exposed by DDR-B control (F-0128).  One page window with ZERO
+     * rows retires them; any other offset in the page still logs.
+     */
+    cxd90045_f292_create(sysmem, 0xF290E000ULL, 0x1000ULL,
+                         "cxd90045.f290e", cxd90045_f290e_rules,
+                         ARRAY_SIZE(cxd90045_f290e_rules));
+
+    /*
      * L0118: clock/reset-group pages beside f2a_clk, ZERO-only, priority -600.
      * The f2a_clk siblings at 0xF2A01000/0xF2A11000/... are separate pages.
      */
@@ -6974,7 +7001,8 @@ static void sony_cxd90045_common_machine_init(MachineClass *mc,
     object_class_property_add_bool(OBJECT_CLASS(mc), "ddrb-control",
                                    sony_get_ddrb_control, sony_set_ddrb_control);
     object_class_property_set_description(OBJECT_CLASS(mc), "ddrb-control",
-        "Model the DDR-B controller's initialized idle/active-mode sequence");
+        "Model the DDR-B controller's initialized idle/active-mode sequence "
+        "(on by default; ddrb-control=off disables it)");
     object_class_property_add_bool(OBJECT_CLASS(mc), "dfs-control",
                                    sony_get_dfs_control, sony_set_dfs_control);
     object_class_property_set_description(OBJECT_CLASS(mc), "dfs-control",
