@@ -540,7 +540,7 @@ class TestCameraService(unittest.TestCase):
                         updater.getFirmwareVersion.side_effect = RuntimeError("probe failed")
                     modules = {
                         "pmca.commands.usb": SimpleNamespace(
-                            importDriver=lambda _: nullcontext(), listDevices=lambda _: [object()],
+                            importDriver=lambda _: nullcontext(), listDevices=lambda _, quiet=False: [object()],
                         ),
                         "pmca.usb.sony": SimpleNamespace(
                             SonyExtCmdDevice=object, SonyExtCmdCamera=lambda _: ext,

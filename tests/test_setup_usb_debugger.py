@@ -1,8 +1,11 @@
 """Tests for one-click USB debugger setup and onboarding bundle tooling."""
+from contextlib import nullcontext
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest import mock
 import zipfile
 
 from src.a6400.targets.usb_debugger_compat import (
@@ -13,6 +16,7 @@ from src.a6400.targets.usb_debugger_compat import (
 from tools.research.onboard_debugger_bundle import inspect_and_unpack_bundle
 from tools.setup_usb_debugger import (
     build_onboarding_bundle,
+    detect_msc_camera,
     ensure_payload_binaries,
 )
 
@@ -36,6 +40,35 @@ class _FakeSenserCam:
 
 
 class TestSetupUsbDebugger(unittest.TestCase):
+    def test_windows_mass_storage_survives_libusb_open_failure(self):
+        device_type = type("SonyExtCmdDevice", (), {})
+        native_camera = device_type()
+        import_driver = mock.Mock(side_effect=nullcontext)
+
+        def list_devices(driver, quiet=False):
+            yield native_camera
+            if driver is None:
+                raise NotImplementedError("Operation not supported or unimplemented on this platform")
+
+        camera = mock.Mock()
+        camera.getCameraInfo.return_value = SimpleNamespace(modelName="ILCE-7M3", modelCode="12345")
+        updater = mock.Mock()
+        updater.getFirmwareVersion.return_value = ("4.04", "0.00")
+        modules = {
+            "pmca.commands.usb": SimpleNamespace(importDriver=import_driver, listDevices=list_devices),
+            "pmca.usb.sony": SimpleNamespace(
+                SonyExtCmdDevice=device_type, SonyExtCmdCamera=lambda _: camera,
+                SonyUpdaterCamera=lambda _: updater,
+            ),
+        }
+        with mock.patch.dict("sys.modules", modules), mock.patch("tools.camera_debugger.sys.platform", "win32"):
+            identity = detect_msc_camera()
+
+        self.assertEqual(identity, {"model_name": "ILCE-7M3", "model_code": "12345", "firmware_version": "4.04"})
+        self.assertEqual(import_driver.call_args_list, [mock.call(None), mock.call("native")])
+        camera.getCameraInfo.assert_called_once_with()
+        updater.getFirmwareVersion.assert_called_once_with()
+
     def test_find_debugger_target_by_model(self):
         self.assertEqual(find_debugger_target_by_model("ilce-7c", "2.00").target_id, "ilce_7c")
         self.assertEqual(find_debugger_target_by_model("ILCE-6400", "2.00").target_id, "ilce_6400")
@@ -114,7 +147,6 @@ class TestSetupUsbDebugger(unittest.TestCase):
         import io
         import types
         from contextlib import redirect_stdout
-        from unittest import mock
         from tools import setup_usb_debugger
 
         fake_usb_mod = types.SimpleNamespace(senserShellCommand=lambda **kw: None)

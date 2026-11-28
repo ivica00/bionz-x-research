@@ -363,19 +363,45 @@ def _ensure_pmca_path():
 
 
 @contextlib.contextmanager
+def open_sony_devices(driver_name=None, *, quiet=False):
+    """Keep PMCA devices open and retry Windows discovery with the native drivers if needed."""
+    from pmca.commands.usb import importDriver, listDevices
+
+    driver_names = (None, 'native') if driver_name is None and sys.platform == 'win32' else (driver_name,)
+    auto_error = None
+    for name in driver_names:
+        with importDriver(name) as driver:
+            try:
+                devices = list(listDevices(driver, quiet=quiet))
+            except NotImplementedError as exc:
+                if name is not None or sys.platform != 'win32':
+                    raise
+                # libusb can enumerate a Windows USBSTOR device but fail to open it.
+                auto_error = exc
+                continue
+            if auto_error is not None and not devices:
+                raise auto_error
+            yield devices
+            return
+
+
+@contextlib.contextmanager
 def connect_device():
     """Yield (Debugger, device) so a mode switch can use the same open session."""
     _ensure_pmca_path()
-    from pmca.commands.usb import importDriver,listDevices
     from pmca.usb.sony import SonyMscExtCmdDevice,SonyMtpExtCmdDevice
-    with host_lock(),importDriver(None) as driver:
-        devices=[d for d in listDevices(driver,True) if isinstance(d,(SonyMscExtCmdDevice,SonyMtpExtCmdDevice))]
-        if not devices:
-            time.sleep(.25)
-            devices=[d for d in listDevices(driver,True) if isinstance(d,(SonyMscExtCmdDevice,SonyMtpExtCmdDevice))]
-        if len(devices)!=1:
-            raise RuntimeError(f'Expected one existing MSC/MTP camera; found {len(devices)}. No mode switch attempted.')
-        yield Debugger(NativeExchange(devices[0])), devices[0]
+    with host_lock():
+        for attempt in range(2):
+            if attempt:
+                time.sleep(.25)
+            with open_sony_devices(quiet=True) as devices:
+                cameras = [dev for dev in devices if isinstance(dev, (SonyMscExtCmdDevice, SonyMtpExtCmdDevice))]
+                if not cameras and attempt == 0:
+                    continue
+                if len(cameras) != 1:
+                    raise RuntimeError(f'Expected one existing MSC/MTP camera; found {len(cameras)}. No mode switch attempted.')
+                yield Debugger(NativeExchange(cameras[0])), cameras[0]
+                return
 
 
 def sony_ptp_devices(driver):

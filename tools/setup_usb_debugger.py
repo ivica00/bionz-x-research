@@ -42,6 +42,7 @@ from src.a6400.targets.usb_debugger_compat import (  # noqa: E402
     load_reference_usb_extcmd,
     verify_camera_debugger_compatibility,
 )
+from tools.camera_debugger import open_sony_devices  # noqa: E402
 from tools.deploy_native_usb_debugger import (  # noqa: E402
     read_preload_safe,
     upload_and_verify_debugger,
@@ -148,11 +149,9 @@ class CameraIdentityError(RuntimeError):
 
 def detect_msc_camera(driver_name: str | None = None) -> dict[str, str]:
     """Query connected Sony camera model, product code, and firmware in MSC mode."""
-    from pmca.commands.usb import importDriver, listDevices
     from pmca.usb.sony import SonyExtCmdCamera, SonyExtCmdDevice, SonyUpdaterCamera
 
-    with importDriver(driver_name) as driver:
-        devices = list(listDevices(driver))
+    with open_sony_devices(driver_name) as devices:
         if len(devices) > 1:
             raise RuntimeError(
                 'Multiple Sony USB devices were reported. Connect only one camera and scan again.'
