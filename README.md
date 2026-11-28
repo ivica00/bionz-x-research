@@ -88,7 +88,7 @@ python -m unittest discover -s tests -q
 
 The last recorded full offline suite had 2091 tests (2026-11-18, [`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md)); skips are never counted as passes.
 
-![Research status: demonstrated results and remaining boundaries](docs/images/research-status.svg?v=001db7067bc1)
+![Research status: demonstrated results and remaining boundaries](docs/images/research-status.svg?v=4f73cd467a85)
 
 [Test suite growth over time](docs/images/test-growth.svg) · [av-cam.bin deep-analysis progress](docs/images/avcam-status.svg) · [Current technical state](docs/CURRENT_STATE.md) · [Knowledge map](docs/map/README.md)
 

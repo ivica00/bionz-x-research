@@ -4,7 +4,7 @@
 
 - **Scope:** The QEMU sony-a6400 board: captured four-core boot, av-cam and CamCore sequencing, CXD90045 DFE/DrvSGC0/SyncSeq/SLVS-EC/RdcW0 sensor front-end, SIO/sub-micro, display/rear panel, Ydet/CamPig, live-view frame, contributor scores, Custom OS handover guards and DMA engines.
 - **Evidence span:** see record index; last reviewed 2026-11-28.
-- **Deep review:** 65 of 105 records read in full and checked claim by claim ([curation plan](CURATION_PLAN.md)); the rest are curated from titles, lead paragraphs and consolidated documents.
+- **Deep review:** 65 of 106 records read in full and checked claim by claim ([curation plan](CURATION_PLAN.md)); the rest are curated from titles, lead paragraphs and consolidated documents.
 - **Status legend:** PHYSICAL = observed on the camera/host; OFFLINE = disassembly, Unicorn or static proof; INFERENCE = argued from evidence, not observed directly; RETRACTED/REFUTED = do not rely on, kept to prevent re-derivation.
 
 The evidence records are authoritative; follow the links before acting on a claim.
@@ -151,7 +151,7 @@ Current knowledge:
 - **C26** `OFFLINE` Phase 0 of the av-cam research plan is implemented on ILCE-6400 av-cam.bin (90d515cf...): `python -m tools.research.avcam_indexer build` measures 8 regions (code 0x635c6000..0x63dd6000, bss 0x64046000..0x644c6000), 58,144 candidate functions (57,940 prologue starts), 301,722 call edges, 21,046 NUL-terminated non-code strings, 748 tags, 1,220 MMIO pages and the 285-record command table at 0x645773c8 in about a minute, then writes ten domain shards and a dashboard that reads 0.00 % because every item is UNMAPPED; 38 tests cover the parser, the pointer-flow xrefs, shard coverage, the Ghidra staging and the weighted arithmetic. No area is decompiled and no camera run was made. ([E0759](../evidence/0759-avcam-phase0-index-shards-and-research-map.md))
 - **C27** `OFFLINE` The flat av-cam.bin imports into Ghidra 12.1.4 Headless as ARM:LE:32:v7 at base 0x635c6000 through BinaryLoader, with the loader block replaced by the eight measured regions (code executable, rodata read-only, data/bss read-write), 512 bounded Thumb functions created and 16 entry addresses decompiled by address; the receipt checks language, base, source SHA-256, block layout and decompilation (all PASS), and the existing BoundedThumbProcedures script completed both raw-image queries (0x6395103a, 0x6375160a) with zero flows outside their bounds. A pointer-flow string pass resolves 10,837 function-to-string references over 7,625 strings (167 direct literal, 10,437 PIC base register, 233 indexed table), covering 511 of 748 tags; 13,421 strings have no resolved code reference and need interprocedural typing. ([E0759](../evidence/0759-avcam-phase0-index-shards-and-research-map.md))
 
-## Record index (105 files)
+## Record index (106 files)
 
 Extracted from the files themselves: title, first date, and up to two lines that mention a correction, retraction or supersession. Every file under `docs/evidence/` belongs to at least one area.
 
@@ -262,3 +262,4 @@ Extracted from the files themselves: title, first date, and up to two lines that
 | [E0751](../evidence/0751-qemu-touch-int-repeat.md) | 2026-11-27 | Touch INT repeats while a touch report is unread |  |  |
 | [E0757](../evidence/0757-qemu-dfe-sgc0-syncseq-slvsec-rdcw0-pipeline.md) | 2026-11-28 | Cross-Body `DrvSGC0` / `SyncSeq` / `DfeTop` / `SYSV` Contract Map, Bare-Metal Stall Diagnosis, and QEMU `dfe-sensor=on` / `sysv-cold=on` Bayer RAW Pipeline | yes |  |
 | [E0759](../evidence/0759-avcam-phase0-index-shards-and-research-map.md) | 2026-11-28 | `av-cam.bin` Phase 0: ORIL static index, domain shards and deep-research map |  | Corrected against the first plan: code ends at `0x63dd6000` (not `0x63ebxxxx`); |
+| [E0762](../evidence/0762-qemu-ddrb-default-and-f290e-boot-score.md) | 2026-11-27 | Boot score for the DDR-B controller model on by default and ZERO rows at `0xF290E000` |  |  |
