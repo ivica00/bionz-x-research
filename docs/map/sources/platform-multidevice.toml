@@ -29,6 +29,7 @@ records = [
   "cross_model/prediction-scores.tsv",
   "cross_model/uvc-modules.tsv",
   "external-ilce7c-usb-ids/*",
+  "external-ilce7m3-usb-ids/*",
   "manifests/*",
 ]
 
