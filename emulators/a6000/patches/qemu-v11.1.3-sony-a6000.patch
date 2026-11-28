@@ -433,12 +433,13 @@ diff --git a/hw/misc/meson.build b/hw/misc/meson.build
 index 23265f6..f035b4c 100644
 --- a/hw/misc/meson.build
 +++ b/hw/misc/meson.build
-@@ -168,3 +168,13 @@ system_ss.add(when: 'CONFIG_SBSA_REF', if_true: files('sbsa_ec.c'))
+@@ -168,3 +168,14 @@ system_ss.add(when: 'CONFIG_SBSA_REF', if_true: files('sbsa_ec.c'))
  
  # HPPA devices
  system_ss.add(when: 'CONFIG_LASI', if_true: files('lasi.c'))
 +system_ss.add(when: 'CONFIG_CXD90014_SYSCTL', if_true: files('cxd90014_sysctl.c'))
 +system_ss.add(when: 'CONFIG_CXD90014_SYSCTL', if_true: files('cxd90014_jog.c'))
++system_ss.add(when: 'CONFIG_CXD90014_SYSCTL', if_true: files('cxd90014_dfe.c'))
 +system_ss.add(when: 'CONFIG_CXD90014_SYSCTL', if_true: files('cxd90014_campig.c'))
 +system_ss.add(when: 'CONFIG_CXD90014_SYSCTL', if_true: files('cxd90014_ldec.c'))
 +system_ss.add(when: 'CONFIG_A6K_NFC', if_true: files('a6k_nfc.c'))
@@ -451,7 +452,7 @@ diff --git a/hw/misc/trace-events b/hw/misc/trace-events
 index c9a868b..056c47c 100644
 --- a/hw/misc/trace-events
 +++ b/hw/misc/trace-events
-@@ -442,3 +442,59 @@ iommu_testdev_dma_read(uint64_t gva, uint32_t len) "gva=0x%" PRIx64 " len=%u"
+@@ -442,3 +442,63 @@ iommu_testdev_dma_read(uint64_t gva, uint32_t len) "gva=0x%" PRIx64 " len=%u"
  iommu_testdev_dma_verify(uint32_t expected, uint32_t actual) "expected=0x%x actual=0x%x"
  iommu_testdev_dma_result(uint32_t result) "DMA completed result=0x%x"
  iommu_testdev_dma_armed(bool armed) "armed=%d"
@@ -491,6 +492,10 @@ index c9a868b..056c47c 100644
 +# cxd90014_sa.c
 +cxd_sa_start(uint32_t core, uint32_t n, uint32_t entry, uint32_t prog, uint32_t m0, uint32_t m1, uint32_t m2, uint32_t m3) "SA%u start #%u entry 0x%08x +0x008 0x%08x mbox %08x %08x %08x %08x"
 +cxd_sa_done(uint32_t core, uint32_t factor, uint32_t mask) "SA%u done, factor A 0x%02x mask 0x%02x"
++
++# cxd90014_dfe.c
++cxd_dfe_source(int n, int level) "DFE source %d = %d"
++cxd_dfe_sgc_start(uint32_t key) "SGC start accepted key 0x%x"
 +
 +# cxd90014_idt.c
 +cxd_idt_start(uint32_t n, uint32_t en, uint32_t geom, uint32_t mode) "frame #%u start, +0x444 0x%x +0xC0C 0x%08x +0x418 0x%x"

@@ -16,5 +16,7 @@
 
 /* Rotate the control wheel by n detents (positive = CW). */
 void cxd90014_jog_step(DeviceState *dev, int n);
+/* Channel 0 = rear control wheel, 1 = top control dial. */
+void cxd90014_jog_step_ch(DeviceState *dev, int ch, int n);
 
 #endif

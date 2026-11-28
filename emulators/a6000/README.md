@@ -27,9 +27,11 @@ Each item was checked against the same run on the original QEMU 10.1.0 build. Th
 | Wi-Fi: stock `ath6kl_sdio` on the AR6003 SDIO model, `ath0`/`ath1` up | works; whether the A6000 has an AR6003 is not verified |
 | HDMI 1080p output (console 1), CEC | works |
 | SD card (`mmca10`) | works |
-| Shutter half press (metering) | works; no capture, because there is no ISP or live-view model |
+| Shutter half press (metering) | works; the DFE interrupt controller and sync-generator start bits it uses are modelled (`cxd90014_dfe.c`). No capture, because there is no ISP or live-view model |
 | Power off, then wake | the firmware powers off; on wake (camui power ring or `system_wakeup`) it does a hot resume, but the panel stays black (seen 2026-11-28). Restart the emulator instead |
-| Lens (`lens=ekit`), EVF and eye sensor, control dial | not checked or not modelled |
+| Control wheel and top control dial | work: the wheel moves the menu cursor, the dial changes menu pages |
+| EVF eye sensor | reads "no eye", so the picture stays on the LCD; the EVF itself is not modelled |
+| Lens (`lens=ekit`) | not checked |
 
 ### Guest time
 
@@ -169,6 +171,7 @@ Not explained yet: on the synthetic NAND the shooting screen can show the Steady
 |---|---|
 | ↑ ← ↓ →, Enter | control wheel DISP / Drive / ± / ISO, centre |
 | `]` / `[` | control wheel turn (Shift = x4) |
+| `.` / `,` | top control dial turn (Shift = x4) |
 | Delete, `A`, `F`, `C` | C2/Delete, AEL, Fn, C1 |
 | PgUp / PgDn | mode dial |
 | `M` / `P` | MENU / Playback |
@@ -197,6 +200,7 @@ HMP `sendkey ret 300` also works. Hold keys for about 300 ms. Send one key at a 
 
 - [Oein/a5000-emulator](https://github.com/Oein/a5000-emulator) (GPL-2.0, Park SungHyun): the ILCE-5000 emulator that the machine, its device models and these scripts come from.
 - [voxivoid/a6000-qemu](https://github.com/voxivoid/a6000-qemu): the ILCE-6000 port that this directory is taken from.
+- [Kagander/a6k-emulator](https://github.com/Kagander/a6k-emulator): top control dial, eye-sensor level, edge-triggered pin interrupts and the DFE model.
 - [QEMU](https://gitlab.com/qemu-project/qemu): the emulator the machine is built on.
 - [ma1co/fwtool.py](https://github.com/ma1co/fwtool.py): unpacks Sony's updater.
 - [ma1co/Sony-PMCA-RE](https://github.com/ma1co/Sony-PMCA-RE): PlayMemories Camera Apps tooling. `tools/pmca-socket/` is a backend for it, under MIT like Sony-PMCA-RE (Copyright (c) 2015 ma1co, `tools/pmca-socket/LICENSE`).

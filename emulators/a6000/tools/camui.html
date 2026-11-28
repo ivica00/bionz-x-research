@@ -249,7 +249,7 @@ main { display: grid; gap: 16px; padding: 0 20px 24px; max-width: 1180px; margin
     <section class="card">
       <h2>Keyboard<small>page focused</small></h2>
       <ul class="keys">
-        <li><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> wheel · <kbd>Enter</kbd> OK · <kbd>[</kbd><kbd>]</kbd> turn</li>
+        <li><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> wheel · <kbd>Enter</kbd> OK · <kbd>[</kbd><kbd>]</kbd> turn · <kbd>,</kbd><kbd>.</kbd> top dial</li>
         <li><kbd>M</kbd> MENU · <kbd>P</kbd> playback · <kbd>Del</kbd> C2/delete</li>
         <li><kbd>C</kbd> C1 · <kbd>F</kbd> Fn · <kbd>A</kbd> AEL · <kbd>H</kbd> flash pop-up</li>
         <li><kbd>R</kbd> MOVIE · <kbd>O</kbd> power</li>
@@ -327,7 +327,7 @@ $('#wheel').addEventListener('wheel', async e => { e.preventDefault(); if (wheel
 // ---- keyboard ----
 const kmap = { ArrowUp: ['up'], ArrowDown: ['down'], ArrowLeft: ['left'], ArrowRight: ['right'], Enter: ['ret'],
   Delete: ['delete'], Backspace: ['delete'], m: ['m'], p: ['p'], r: ['r'], o: ['o'], s: ['s'], ' ': ['spc'],
-  '[': ['bracket_left'], ']': ['bracket_right'], c: ['c'], f: ['f'], a: ['a'], h: ['h'] };
+  '[': ['bracket_left'], ']': ['bracket_right'], ',': ['comma'], '.': ['dot'], c: ['c'], f: ['f'], a: ['a'], h: ['h'] };
 const kname = e => e.key.length === 1 ? e.key.toLowerCase() : e.key;
 const kheld = new Set();
 addEventListener('keydown', e => { if (e.target.tagName === 'INPUT') return;
