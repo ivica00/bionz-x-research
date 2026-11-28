@@ -26,6 +26,9 @@ snapshot or its recorded test count.
   external contributor (`mavanha`, Issue #60) `pmca` MSC `model_code` (`0032852231`)
   and Windows PnP USB PIDs (`054C:0D29`, `0D2A`, `0D2B`, `0DE6`, `bcdDevice 0x0200`)
   observed on a stock FW 2.00 body.
+- [ILCE-7M3 USB IDs receipt, 2026-11-28](external-ilce7m3-usb-ids/README.md):
+  Linux host reports for Mass Storage, MTP, PC Remote, and a device ID that
+  exposes both Mass Storage and Imaging configurations.
 
 ## Latest records
 

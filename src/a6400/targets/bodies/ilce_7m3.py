@@ -1,14 +1,18 @@
-"""Sony ILCE-7M3 (a7 III) offline-sourced target profile."""
+"""Sony ILCE-7M3 (a7 III) reference profile with host-observed USB IDs."""
 from __future__ import annotations
 
 from src.a6400.targets.bodies._common import E0482, ILCE_6XXX_BOUNDARIES, ref
 from src.a6400.targets.profile import (
+    PID_TIER_OBSERVED,
     PID_TIER_STOCK,
     STATUS_REFERENCE,
+    EvidenceRef,
     TargetProfile,
     UsbIdentity,
     UsbPid,
 )
+
+EXTERNAL_ILCE7M3_USB_IDS = "docs/evidence/external-ilce7m3-usb-ids/README.md"
 
 ILCE_7M3 = TargetProfile(
     target_id="ilce_7m3",
@@ -40,7 +44,12 @@ ILCE_7M3 = TargetProfile(
             "stock_0bff": UsbPid(0x0BFF, PID_TIER_STOCK),
             "stock_0c01": UsbPid(0x0C01, PID_TIER_STOCK),
             "stock_0c02": UsbPid(0x0C02, PID_TIER_STOCK),
+            "multi_configuration": UsbPid(0x0C01, PID_TIER_OBSERVED),
+            "mass_storage": UsbPid(0x0C02, PID_TIER_OBSERVED),
+            "mtp": UsbPid(0x0C03, PID_TIER_OBSERVED),
+            "pc_remote": UsbPid(0x0C34, PID_TIER_OBSERVED),
         },
+        bcd_device=0x0200,
     ),
     modules={},
     sources={
@@ -53,13 +62,17 @@ ILCE_7M3 = TargetProfile(
         "kallsyms.usb_gcw_stop": ref(E0482, "decoded from this body's vmlinux.bin 175df4fc..."),
         "kallsyms.setup_req": ref(E0482, "decoded from this body's vmlinux.bin 175df4fc..."),
         "kallsyms.make_config_desc": ref(E0482, "decoded from this body's vmlinux.bin 175df4fc..."),
-        "usb": ref(E0482, "normalUsbDescriptors in this body's config.yaml; 10 pairs, vid 0x54C"),
+        "usb": (
+            EvidenceRef(E0482, "normalUsbDescriptors in this body's config.yaml; 10 pairs, vid 0x54C"),
+            EvidenceRef(EXTERNAL_ILCE7M3_USB_IDS, "Linux host captures of the four USB identities and bcdDevice 0x0200"),
+        ),
     },
     boundaries=ILCE_6XXX_BOUNDARIES + (
         "devno.ko (3,988 B, 65933cda...) publishes 17 /dev/usb nodes and no video/audio row, so a "
         "kernel-side UVC node does not exist on this body (E0482 section 3, E0479).",
         "The stock id set does not include 0x0CA8, which the a6400 records as its mass-storage "
         "identity; do not assume one mass-storage pid across the family.",
+        "The observed IDs identify USB configurations. Mod installation still requires validation on the camera.",
     ),
     notes=(
         "Offline-sourced from its own packaged updater. This is the model the owner's issue #7 "
