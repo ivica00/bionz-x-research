@@ -4,15 +4,15 @@
 F-0104 identifies 0xF2900000..0xF2900FFF as the CXD90045 clock/reset bank
 (`clkrst3`).  L0116 maps it as a per-offset window cxd90045.f290 (size 0x1000,
 priority -600) whose nine rows are all CXD90045_F292_ZERO: +0x004, +0x008,
-+0x028, +0x034, +0x038, +0x044, +0x0A4, +0x0A8, +0x0C4.  +0x030 deliberately
-has no row (its read is branched on, F-0104), so it must keep logging as
-unmodelled.
++0x028, +0x034, +0x038, +0x044, +0x0A4, +0x0A8, +0x0C4.  +0x030, whose read is
+branched on (F-0104), has one CXD90045_F292_CONST row holding the value observed
+on an ILCE-6100.
 
 Static checks only (no QEMU boot):
-  S.rows_are_the_nine_offsets   the table holds exactly the nine offsets
+  S.rows_are_the_ten_offsets    the nine ZERO offsets plus +0x030
   S.no_RF_row                   no CXD90045_F292_RF row
-  S.all_rows_ZERO               every row is CXD90045_F292_ZERO
-  S.no_row_for_0x030            +0x030 is not ruled
+  S.nine_rows_ZERO              the nine write-side offsets are ZERO
+  S.row_0x030_is_captured       +0x030 is CONST 0x008E56FC, read by the model
   S.window_created_once         one cxd90045_f292_create call at 0xF2900000,
                                 size 0x1000, using cxd90045_f290_rules
 
@@ -25,7 +25,7 @@ from pathlib import Path
 
 SOURCE = Path("emulators/qemu-a6400/qemu-overlay/hw/arm/sony_a6400.c")
 RULED_OFF = [0x004, 0x008, 0x028, 0x034, 0x038, 0x044, 0x0A4, 0x0A8, 0x0C4]
-UNRULED_OFF = 0x030
+CAPTURED_OFF = 0x030
 
 
 def table_rows():
@@ -46,21 +46,27 @@ def create_calls():
 
 
 class F290StaticTest(unittest.TestCase):
-    def test_rows_are_the_nine_offsets(self):
+    def test_rows_are_the_ten_offsets(self):
         offs = sorted(off for off, _ in table_rows())
-        self.assertEqual(offs, sorted(RULED_OFF))
+        self.assertEqual(offs, sorted(RULED_OFF + [CAPTURED_OFF]))
 
     def test_no_RF_row(self):
         kinds = [k for _, k in table_rows()]
         self.assertEqual(kinds.count("CXD90045_F292_RF"), 0)
 
-    def test_all_rows_ZERO(self):
-        kinds = [k for _, k in table_rows()]
-        self.assertEqual(kinds.count("CXD90045_F292_ZERO"), len(RULED_OFF))
+    def test_nine_rows_ZERO(self):
+        zero = sorted(o for o, k in table_rows() if k == "CXD90045_F292_ZERO")
+        self.assertEqual(zero, sorted(RULED_OFF))
 
-    def test_no_row_for_0x030(self):
-        offs = [off for off, _ in table_rows()]
-        self.assertNotIn(UNRULED_OFF, offs)
+    def test_row_0x030_is_captured(self):
+        self.assertEqual(dict(table_rows())[CAPTURED_OFF],
+                         "CXD90045_F292_CONST")
+        text = SOURCE.read_text(errors="replace")
+        start = text.index("static const Cxd90045F292Rule cxd90045_f290_rules[]")
+        body = text[start:text.index("};", start)]
+        self.assertRegex(body, r"\{\s*0x030,[^}]*0x008e56fc\s*\}")
+        self.assertRegex(text, r"r->kind == CXD90045_F292_CONST\) \{\s*"
+                               r"v = r->value;")
 
     def test_window_created_once(self):
         calls = create_calls()

@@ -4,7 +4,7 @@
 
 - **Scope:** The QEMU sony-a6400 board: captured four-core boot, av-cam and CamCore sequencing, SIO/sub-micro, display/rear panel, Ydet/CamPig, live-view frame, contributor scores, Custom OS handover guards and DMA engines.
 - **Evidence span:** see record index; last reviewed 2026-11-26.
-- **Deep review:** 64 of 103 records read in full and checked claim by claim ([curation plan](CURATION_PLAN.md)); the rest are curated from titles, lead paragraphs and consolidated documents.
+- **Deep review:** 64 of 104 records read in full and checked claim by claim ([curation plan](CURATION_PLAN.md)); the rest are curated from titles, lead paragraphs and consolidated documents.
 - **Status legend:** PHYSICAL = observed on the camera/host; OFFLINE = disassembly, Unicorn or static proof; INFERENCE = argued from evidence, not observed directly; RETRACTED/REFUTED = do not rely on, kept to prevent re-derivation.
 
 The evidence records are authoritative; follow the links before acting on a claim.
@@ -120,7 +120,7 @@ Do not rely on:
 
 - ~~The LIRO ram section filled through 0xF30A is a separate sub-core firmware image.~~ **R01** `RETRACTED` ([E0642](../evidence/0642-a6400-f30a-fill-engine-and-liro-ram-section.md)); see C13: The LIRO ram section copied by the work DMA is av-cam's own initialised RW data (1,878 references from av-cam code), not a sub-core image.
 
-## Record index (103 files)
+## Record index (104 files)
 
 Extracted from the files themselves: title, first date, and up to two lines that mention a correction, retraction or supersession. Every file under `docs/evidence/` belongs to at least one area.
 
@@ -229,3 +229,4 @@ Extracted from the files themselves: title, first date, and up to two lines that
 | [E0749](../evidence/0749-qemu-bcm4339-wl-magic.md) | 2026-11-27 | QEMU BCM4339 `WLC_GET_MAGIC` reply lets the WiFiSync AP script pass `wl bands` |  |  |
 | [E0750](../evidence/0750-qemu-bcm4339-chanspec-state.md) | 2026-11-27 | BCM4339 keeps the chanspec set through WLC_SET_VAR |  |  |
 | [E0751](../evidence/0751-qemu-touch-int-repeat.md) | 2026-11-27 | Touch INT repeats while a touch report is unread |  |  |
+| [E0763](../evidence/0763-qemu-f290-captured-value.md) | 2026-11-28 | Model returns the captured `0xF2900030` value `0x008E56FC` (observed on an ILCE-6100) |  |  |
