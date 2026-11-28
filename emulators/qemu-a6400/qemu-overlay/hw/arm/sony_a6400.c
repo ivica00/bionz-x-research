@@ -2981,12 +2981,14 @@ static const MemoryRegionOps cxd90045_sif_ops = {
 typedef enum Cxd90045F292Kind {
     CXD90045_F292_ZERO, /* read 0 (status never written, or write-only) */
     CXD90045_F292_RF,   /* read back the last value written */
+    CXD90045_F292_CONST, /* read a captured constant; writes do not change it */
 } Cxd90045F292Kind;
 
 typedef struct Cxd90045F292Rule {
     uint32_t off;
     Cxd90045F292Kind kind;
     const char *why;
+    uint32_t value;      /* CXD90045_F292_CONST only */
 } Cxd90045F292Rule;
 
 /* Kernel FUSB/OTG window 0xF2920000..0xF2922FFF (F-0099). */
@@ -3774,14 +3776,18 @@ static const Cxd90045F292Rule cxd90045_f022_rules[] = {
  * clkrst3 clock/reset bank at PA 0xF2900000, size 0x1000 (F-0104, L0116).
  * The kernel clk-init and av-cam clock code write these offsets; the reads
  * the catch-all used to answer are 0, and the rows below keep that value.
- * Every row is ZERO (read 0, writes stored and never read back), so the
- * guest sees no change.  +0x030 gets NO row on purpose: its read is
- * branched on (F-0104), so a constant would be a guess, and it must still
- * log as cxd90045.f290.unmodelled.  The 4 KiB page is the only range this
+ * Every ZERO row reads 0 and stores writes that are never read back, so the
+ * guest sees no change.  +0x030 is read and branched on (F-0104).  It returns
+ * the value observed on an ILCE-6100 (idle, no lens; a different camera and
+ * kernel build from the emulated ILCE-6400), a post-init observation, not a
+ * reset value.  The 4 KiB page is the only range this
  * window covers; the LDEC page at 0xF2903000 and the 0xF2800000 regfile are
  * separate.  Unruled offsets still log, so the window is not a blanket zero.
  */
 static const Cxd90045F292Rule cxd90045_f290_rules[] = {
+    { 0x030, CXD90045_F292_CONST,
+      "PCIe power-save status; captured 0x008E56FC, observed on ILCE-6100, "
+      "idle", 0x008e56fc },
     { 0x004, CXD90045_F292_ZERO,
       "write/read pair; read returns 0, the catch-all value (F-0104) (L0116)" },
     { 0x008, CXD90045_F292_ZERO,
@@ -3942,6 +3948,8 @@ static uint64_t cxd90045_f292_read(void *opaque, hwaddr off, unsigned size)
         cxd90045_f292_log_unlisted(s, false, off, size, 0);
     } else if (r->kind == CXD90045_F292_RF) {
         v = s->regs[w >> 2];
+    } else if (r->kind == CXD90045_F292_CONST) {
+        v = r->value;
     }
     /* ZERO and unlisted offsets read 0, as the certified catch-all did. */
     v >>= (off & 3) * 8;
