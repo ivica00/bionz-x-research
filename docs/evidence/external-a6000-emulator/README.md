@@ -143,3 +143,94 @@ Static findings in the 3.21 updater (offline: disassembly and file comparison, n
 
 Emulator observation: after a power-off, a wake through the camui power ring or
 `system_wakeup` does a hot resume (DDR kept), but the panel stays black.
+
+## Update 2026-11-28: control dial, eye sensor, pin interrupts, DFE
+
+Contributor: `Kagander`. Source: [Kagander/a6k-emulator](https://github.com/Kagander/a6k-emulator),
+a fork of voxivoid/a6000-qemu (`3a039c5`, QEMU 10.1.0) where these changes were first made
+and used. This update ports four of them to this repository's QEMU 11.1.3 tree. They touch
+only `emulators/a6000/`; no shared `cxd90014_*` model and nothing under
+`emulators/qemu-a6400/` changes.
+
+| Change | Where |
+|---|---|
+| Top control dial: TPU channel 1 (`0xF2404114`) is a second up/down counter. Host keys `.` / `,`. One wheel key press is now 4 counts of channel 0. | `cxd90014_jog.c`, `sony_a6000.c` |
+| Eye sensor P1.6 idles high ("no eye") through the board's `reset-high` list. | `sony_a6000.c` |
+| The boot stub sets every GPIO pin interrupt (GIC 121..135, 137..143, 144) edge-triggered. | `sony_a6000.c` |
+| DFE interrupt source controller on GIC 136 (which is no longer wired to p0.15), sync-generator start bits, and two more `cxd90014-p2s` instances for the DFE P2S units. | new `cxd90014_dfe.c`, `sony_a6000.c` |
+
+### Inputs and builds
+
+Same updater as above (`vmlinux.bin` SHA-256 `1ad249a2…5053`, checked). The emulated NAND
+is one provisioned from the contributor's own camera dump; it is not published. It still
+shows the first-boot "Set Area/Date/Time" dialog.
+
+Three builds of QEMU 11.1.3 (`005c61c0ef6f6ae615283440b4bb7be51b2c6ddd`), staged by
+`emulators/a6000/setup-qemu.sh` on macOS (Apple Silicon) and configured with
+`--target-list=arm-softmmu --disable-docs --disable-werror --disable-gtk --disable-sdl`:
+**base** (this repository before the change), **all** (this change) and **no-eye** (this
+change without the `1.6` entry in `reset-high`).
+
+### Commands
+
+Each build ran once, all three in parallel, each on its own copy of the NAND with the
+machine options of `run.sh` (`nand-snapshot=on`, `-icount shift=0,sleep=on`), plus
+`-display none -nic none -trace gic_acknowledge_irq -trace 'cxd_dfe_*'` and a TCG plugin
+that prints av-cam's own debug log (hooks at `0x435ab89a` and `0x4390273c`; the plugin is
+in the contributor's repository, `a6000-qemu/tools/avlog.c`, not here). Keys were sent over
+QMP `send-key` with a 300 ms hold and the LCD read with `screendump`:
+
+```text
+wait 80 s; ret; wait 10 s; s (held 3 s); wait 10 s; m; wait 12 s; dot; wait 10 s;
+bracket_right; wait 10 s; m; wait 12 s; pgup; wait 15 s; pgup; wait 15 s
+```
+
+### What was observed
+
+| Item | base | all |
+|---|---|---|
+| Boot, setup dialog, area screen, MENU page 1 | same screendump MD5 in all three builds | |
+| `dot` (top dial) in MENU | no change | page 1 → page 2 |
+| `bracket_right` (wheel) in MENU | no change | cursor moves down one item |
+| Acknowledges of GIC 133 (link strobe p0.12) over the run | 1,248,547 | 3,984 |
+| av-cam log lines "Last frame is not started" | 7,003 | 5 |
+| av-cam log lines "wai_flag error" | 1,157 | 0 |
+| Acknowledges of GIC 136 (DFE) | 0 | 599 |
+| Shooting screen after the half press | the reduced layout without the exposure graphic | the monitor layout with the exposure graphic |
+
+The **no-eye** build matched **all** in every row except the last, where it matched
+**base**. The layout difference therefore comes from the eye-sensor level alone. Which
+display the firmware calls that reduced layout was not read from the firmware.
+
+In an earlier run of **base** and **all** only (same options, shorter waits) GIC 133 was
+acknowledged 666,725 and 2,118 times.
+
+### Static findings (av-cam 3.21, VA = file offset + `0x43541000`)
+
+- `JogTpu` reads a 16-bit counter at `+0x14` of each TPU channel of `0xF2404000`
+  (`439917D2`); channel 0 is the rear wheel, channel 1 (`+0x114`) the top dial.
+- The eye sensor is GPIO P1.6, active low: `4359251A` sends key `0x708B` = 1 when the pin
+  reads low.
+- The DFE ISR `436CF279` is registered on GIC 136 in the IRQ table at `0x43FD5E30`. It
+  reads the pending source from `0xFC01FF00`, dispatches sources 0..13 and writes the same
+  register at the end. Sources 0 and 1 are the P2S units DFE0/DFE1 (`0xFC088000`,
+  `0xFC089000`). The sync-generator objects poll bit 0 of `+0x10` in their register blocks
+  at `0xFC0A1100…` and `0xFC099100` and log "Last frame is not started" while it reads 1.
+
+### Boundaries
+
+- One run per build, on macOS only; no Linux build was made. The firmware-free tests of
+  `tests/test_qemu_a6000_machine.py` passed against the **all** build (16 run, 1 skipped
+  for missing dosfstools).
+- Seen only on QEMU 10.1.0 in the contributor's fork, not repeated here: in S mode the
+  wheel and the dial each move the shutter speed one third stop per press; in M mode the
+  wheel sets the shutter speed and the dial the aperture; the dial steps through Playback
+  pictures. The 4-counts-per-wheel-step rule comes from those S-mode runs.
+- Model assumptions, marked `hypothesis` in the source: the sync-generator start bit clears
+  at the next 33.367 ms frame boundary; the real bootloader's interrupt configuration is
+  not known. DFE sources 2..13 are not driven.
+- The shared GPIO model still raises the line on both edges of a pin and holds it for
+  1 ms; a second edge of the same pin inside that time is not a new interrupt.
+- No still capture, EVF, lens or movie behaviour is claimed. A synthetic NAND was not
+  tested with this change.
+- These are emulator observations. Nothing was run on a camera for this update.

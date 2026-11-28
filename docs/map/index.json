@@ -118,7 +118,11 @@
       ],
       "anchor": "a6000-emulator.md#a6000-board",
       "active_claims": [
-        "C01"
+        "C01",
+        "C04",
+        "C05",
+        "C06",
+        "C07"
       ],
       "inactive_claims": [
         "R01"
@@ -11611,6 +11615,34 @@
         "area": "a6000-emulator",
         "kind": "claim",
         "id": "C03",
+        "file": "external-a6000-emulator/README.md",
+        "status": "verified-offline"
+      },
+      {
+        "area": "a6000-emulator",
+        "kind": "claim",
+        "id": "C04",
+        "file": "external-a6000-emulator/README.md",
+        "status": "verified-offline"
+      },
+      {
+        "area": "a6000-emulator",
+        "kind": "claim",
+        "id": "C05",
+        "file": "external-a6000-emulator/README.md",
+        "status": "verified-offline"
+      },
+      {
+        "area": "a6000-emulator",
+        "kind": "claim",
+        "id": "C06",
+        "file": "external-a6000-emulator/README.md",
+        "status": "verified-offline"
+      },
+      {
+        "area": "a6000-emulator",
+        "kind": "claim",
+        "id": "C07",
         "file": "external-a6000-emulator/README.md",
         "status": "verified-offline"
       },

@@ -14,7 +14,7 @@
 <rect x="224.878" y="68" width="181.354" height="26" rx="5" fill="#21262d" stroke="#30363d" stroke-width="1" />
 <rect x="278.158" y="68" width="128.074" height="26" rx="5" fill="#2ea043" />
 <text x="233.878" y="85" fill="#c9d1d9" font-size="10.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">claims</text>
-<text x="287.158" y="85" fill="#ffffff" font-size="10.5" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">393 · 52 retracted</text>
+<text x="287.158" y="85" fill="#ffffff" font-size="10.5" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">397 · 52 retracted</text>
 <rect x="414.232" y="68" width="217.574" height="26" rx="5" fill="#21262d" stroke="#30363d" stroke-width="1" />
 <rect x="479.272" y="68" width="152.534" height="26" rx="5" fill="#1f6feb" />
 <text x="423.232" y="85" fill="#c9d1d9" font-size="10.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">evidence</text>
@@ -81,7 +81,7 @@
 <text x="486" y="574" fill="#f0f6fc" font-size="12" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">Open Frontier</text>
 <text x="486" y="590" fill="#8b949e" font-size="8.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">open edges of the mapped areas</text>
 <text x="40" y="610" fill="#c9d1d9" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">ILCE-6000 (CXD90014) sony-a6000 emulator</text>
-<text x="434" y="610" fill="#8b949e" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">0/1 · 3/1</text>
+<text x="434" y="610" fill="#8b949e" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">0/1 · 7/1</text>
 <text x="40" y="630" fill="#c9d1d9" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">ILCE-6400A qualification and firmware acquisition</text>
 <text x="434" y="630" fill="#8b949e" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">0/20 · 9/0</text>
 <text x="40" y="650" fill="#c9d1d9" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">Firmware dump sets and partition identity</text>
