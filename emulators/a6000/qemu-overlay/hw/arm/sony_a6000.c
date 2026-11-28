@@ -79,8 +79,8 @@
  * hand-off (0x80000000+0x20000) and the wbimem page at 0x80021000 */
 #define A6K_ATAG_ADDR       0x80024000ULL
 #define A6K_STUB_ADDR       0x80025000ULL
-#define A6K_STUB_ENTRY      22  /* word: ldr pc literal (kernel entry) */
-#define A6K_STUB_TABLE      23  /* word: ITARGETSR table */
+#define A6K_STUB_ENTRY      28  /* word: ldr pc literal (kernel entry) */
+#define A6K_STUB_TABLE      29  /* word: ITARGETSR table */
 #define A6K_HANDOFF_RTC_LOST 0x800210E4ULL  /* docs/reference/RE_RTC.md section 2 */
 /* hand-off page (wbimem=0x1000@0x80021000), docs/reference/RE_WARM_RESUME.md 1.2 */
 #define A6K_HANDOFF_PAGE    0x80021000ULL
@@ -352,29 +352,46 @@ static void a6k_write_stub(void)
      *  - same for the NFC data-ready IRQ 125 (P0.4, ICFGR7 bit 27): its
      *    ISR nfc_rsrc_irq only posts an event, one reader command must be
      *    one ISR run (docs/reference/RE_NFC.md section 4.3) [hypothesis];
+     *  - same for every GPIO pin interrupt, 121..135 (p0.0-14), 137..143
+     *    (p1.0-6) and 144 (p0.16); 136 is the DFE interrupt controller
+     *    (cxd90014-dfe) and stays level.  The pin model holds the line
+     *    for 1 ms after a pin edge ("pulse-us").  Level-triggered, the
+     *    CPU took one pin edge about 30 times while the line was held
+     *    (IRQ 133, the sub-micro link strobe p0.12: 45000 acknowledges in
+     *    40 s instead of 1400, counted with -trace gic_acknowledge_irq),
+     *    and an edge it could not take within that millisecond was lost
+     *    (now and then a key press).  The handlers of these lines only
+     *    post an event, so one pin edge must be one ISR run [hypothesis:
+     *    the real bootloader's ICFGR values are not known];
      *  - r0 = 0, r1 = machine id, r2 = tags, jump to the kernel.
      */
     uint32_t stub[A6K_STUB_TABLE + 56] = {
-        0xe59f3038,             /* ldr r3, =0xF8001820        */
-        0xe59f4038,             /* ldr r4, =0xF8001900        */
-        0xe28f604c,             /* add r6, pc, #0x4c (table)  */
+        0xe59f3048,             /* ldr r3, =0xF8001820        */
+        0xe59f4048,             /* ldr r4, =0xF8001900        */
+        0xe28f6064,             /* add r6, pc, #0x64 (table)  */
         0xe4965004,             /* 1: ldr r5, [r6], #4        */
         0xe4835004,             /* str r5, [r3], #4           */
         0xe1530004,             /* cmp r3, r4                 */
         0x3afffffb,             /* blo 1b                     */
-        0xe59f3024,             /* ldr r3, =0xF8001C18 (ICFGR6) */
-        0xe59f5024,             /* ldr r5, =0x28A0            */
+        0xe59f3034,             /* ldr r3, =0xF8001C18 (ICFGR6) */
+        0xe59f5034,             /* ldr r5, =0x28A0            */
         0xe5835000,             /* str r5, [r3]               */
-        0xe3a05302,             /* mov r5, #0x08000000        */
+        0xe59f5030,             /* ldr r5, =0xAAA80000        */
         0xe5835004,             /* str r5, [r3, #4] (ICFGR7)  */
+        0xe59f502c,             /* ldr r5, =0xAAA8AAAA        */
+        0xe5835008,             /* str r5, [r3, #8] (ICFGR8)  */
+        0xe3a05002,             /* mov r5, #2       (IRQ 144) */
+        0xe583500c,             /* str r5, [r3, #12] (ICFGR9) */
         0xe3a00000,             /* mov r0, #0                 */
-        0xe59f1014,             /* ldr r1, =A6K_MACH_ID       */
-        0xe59f2014,             /* ldr r2, =A6K_ATAG_ADDR     */
-        0xe59ff014,             /* ldr pc, =A6K_KERNEL_ADDR   */
+        0xe59f101c,             /* ldr r1, =A6K_MACH_ID       */
+        0xe59f201c,             /* ldr r2, =A6K_ATAG_ADDR     */
+        0xe59ff01c,             /* ldr pc, =A6K_KERNEL_ADDR   */
         0xf8001820,
         0xf8001900,
         0xf8001c18,
         0x000028a0,             /* IRQ 98, 99, 101, 102 edge-triggered */
+        0xaaa80000,             /* IRQ 121..127 (p0.0-6) */
+        0xaaa8aaaa,             /* IRQ 128..143 without 136 */
         A6K_MACH_ID,
         (uint32_t)A6K_ATAG_ADDR,
         (uint32_t)A6K_KERNEL_ADDR,
@@ -1048,11 +1065,26 @@ static void a6k_key_event(DeviceState *dev, QemuConsole *src,
         break;
     case Q_KEY_CODE_BRACKET_RIGHT:
     case Q_KEY_CODE_BRACKET_LEFT:
-        /* control wheel: ] = CW (event0 525), [ = CCW (526); Shift = x4 */
+        /*
+         * control wheel: ] = CW (event0 525), [ = CCW (526); Shift = x4.
+         * av-cam takes one wheel step per 4 counts of TPU channel 0 (S
+         * mode: 1 count did nothing, 4 moved the shutter speed one stop
+         * third, 8 two), so one key press is 4 counts; the top dial
+         * (channel 1, below) steps once per count.
+         */
         if (down && s->jog) {
-            int n = s->key_shift ? 4 : 1;
+            int n = (s->key_shift ? 4 : 1) * 4;
             cxd90014_jog_step(s->jog,
                               qcode == Q_KEY_CODE_BRACKET_RIGHT ? n : -n);
+        }
+        break;
+    case Q_KEY_CODE_DOT:
+    case Q_KEY_CODE_COMMA:
+        /* top control dial (TPU channel 1): . = CW, , = CCW; Shift = x4 */
+        if (down && s->jog) {
+            int n = s->key_shift ? 4 : 1;
+            cxd90014_jog_step_ch(s->jog, 1,
+                                 qcode == Q_KEY_CODE_DOT ? n : -n);
         }
         break;
     /*
@@ -1941,15 +1973,25 @@ static void a6k_init(MachineState *ms)
      *   p1.5, p0.13      S2 (full press) and its second interrupt line
      *   p0.9             E-mount lens detect, low = attached (av-cam
      *                    439939C0); high on an empty mount [hypothesis]
+     *   p1.6             EVF eye sensor, low = eye at the finder (av-cam
+     *                    4359251A sends key 0x708B = 1 when it is low).
+     *                    Idle low, the firmware saw an eye and, with
+     *                    FINDER/MONITOR on Auto, moved the picture to the
+     *                    EVF after a mode change: the LCD went black.
      */
     qdev_prop_set_string(dev, "reset-high",
-                         s->lens_ekit ? "5.2,10.10,0.1,0.11,0.13,1.5"
-                                      : "5.2,10.10,0.1,0.11,0.13,1.5,0.9");
+                         s->lens_ekit ? "5.2,10.10,0.1,0.11,0.13,1.5,1.6"
+                                      : "5.2,10.10,0.1,0.11,0.13,1.5,1.6,0.9");
     /* pin IRQ pulse width as in the a5000 model */
     qdev_prop_set_uint32(dev, "pulse-us", 1000);
     sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
     sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, A6K_GPIO_BASE);
     for (int pn = 0; pn <= 16; pn++) {
+        if (pn == 15) {
+            /* GIC 136 is the DFE interrupt in av-cam 3.21 (IRQ table
+             * 0x43FD5E30), cxd90014-dfe below; p0.15 is not a source */
+            continue;
+        }
         sysbus_connect_irq(SYS_BUS_DEVICE(dev), pn,
                            pic[GIC_ID(pn < 16 ? 121 + pn : 144)]);
     }
@@ -2067,6 +2109,28 @@ static void a6k_init(MachineState *ms)
         sysbus_realize_and_unref(SYS_BUS_DEVICE(dev), &error_fatal);
         sysbus_mmio_map(SYS_BUS_DEVICE(dev), 0, 0xF3C00000);
         sysbus_connect_irq(SYS_BUS_DEVICE(dev), 0, pic[GIC_ID(38)]);
+
+        /*
+         * DFE: interrupt source controller (GIC 136), sync-generator
+         * start bits and the two DFE P2S units, hw/misc/cxd90014_dfe.c.
+         * av-cam 3.21 drives the imager through P2S DFE0 (0xFC088000)
+         * during the high-speed live-view sequence of a half press.
+         */
+        DeviceState *dfe = qdev_new("cxd90014-dfe");
+        sysbus_realize_and_unref(SYS_BUS_DEVICE(dfe), &error_fatal);
+        sysbus_mmio_map_overlap(SYS_BUS_DEVICE(dfe), 0, 0xFC01F000, -500);
+        sysbus_mmio_map_overlap(SYS_BUS_DEVICE(dfe), 1, 0xFC0A0000, -500);
+        sysbus_mmio_map_overlap(SYS_BUS_DEVICE(dfe), 2, 0xFC099000, -500);
+        sysbus_connect_irq(SYS_BUS_DEVICE(dfe), 0, pic[GIC_ID(136)]);
+        for (int u = 0; u < 2; u++) {
+            DeviceState *p2s = qdev_new("cxd90014-p2s");
+            qdev_prop_set_uint64(p2s, "base", 0xFC088000 + u * 0x1000);
+            sysbus_realize_and_unref(SYS_BUS_DEVICE(p2s), &error_fatal);
+            sysbus_mmio_map_overlap(SYS_BUS_DEVICE(p2s), 0,
+                                    0xFC088000 + u * 0x1000, -500);
+            sysbus_connect_irq(SYS_BUS_DEVICE(p2s), 0,
+                               qdev_get_gpio_in(dfe, u));
+        }
 
         /* SIF sync-code counters, clocked by the input unit's frames */
         DeviceState *sif = qdev_new("cxd90014-sif");

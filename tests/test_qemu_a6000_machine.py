@@ -35,7 +35,8 @@ _SPEC.loader.exec_module(synth)
 # Device models that only the A6000 board instantiates.
 A6000_ONLY_DEVICES = {
     "cxd90014-aif", "cxd90014-campig", "cxd90014-cec", "cxd90014-ddrc",
-    "cxd90014-dmac", "cxd90014-hdmi", "cxd90014-idt", "cxd90014-jog",
+    "cxd90014-dfe", "cxd90014-dmac", "cxd90014-hdmi", "cxd90014-idt",
+    "cxd90014-jog",
     "cxd90014-ldec", "cxd90014-mdma", "cxd90014-nand", "cxd90014-opd",
     "cxd90014-sysctl", "cxd90014-usbhdc", "a6k-nfc", "a6k-fbview",
     "ar6003-sdio",
