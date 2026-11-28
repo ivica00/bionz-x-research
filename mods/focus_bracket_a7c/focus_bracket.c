@@ -19,6 +19,7 @@
 #define FN_PARAM_INT_DTOR   ((void (*)(void *))LIBOBJ_ADDR(0x00109c84u))
 #define FN_ISSUE_CMD_SYNC   ((int (*)(void *, void *, void *))LIBOBJ_ADDR(0x0010b2a4u))
 #define FN_PTHREAD_CREATE   ((int (*)(uint32_t *, void *, void *(*)(void *), void *))LIBOBJ_ADDR(0x0010be54u))
+#define FN_PTHREAD_DETACH   ((int (*)(uint32_t))LIBOBJ_ADDR(0x0010984cu))
 #define FN_USLEEP           ((int (*)(uint32_t))LIBOBJ_ADDR(0x0010f34cu))
 
 #define PTR_G_PEVTMGR       ((void *volatile *)LIBOBJ_ADDR(0x01488ea0u))
@@ -40,6 +41,7 @@
 /* Writable state in .text (mod_v2.ld folds .data* into .text; SMOD v2 maps mods RWX). */
 __attribute__((section(".data"), used)) uint8_t fb_cfg[8] = {0};
 __attribute__((section(".data"), used)) volatile uint32_t fb_running = 0;
+__attribute__((section(".data"), used)) volatile uint32_t fb_worker_active = 0;
 __attribute__((section(".data"), used)) volatile uint32_t fb_save_seq = 0;
 __attribute__((section(".data"), used)) volatile uint32_t fb_shots_done = 0;
 __attribute__((section(".data"), used)) volatile uint32_t fb_steps_done = 0;
@@ -149,13 +151,13 @@ static void *fb_worker(void *arg) {
     FN_USLEEP(800000u);
 
     for (uint32_t i = 0; i < shots && fb_running; i++) {
-        uint32_t prev_seq = fb_save_seq;
+        uint32_t prev_seq = __atomic_load_n(&fb_save_seq, __ATOMIC_ACQUIRE);
         post_key_event(KEY_S2_PRESS);
         FN_USLEEP(80000u);
         post_key_event(KEY_S2_RELEASE);
 
-        for (uint32_t w = 0; w < 30u && fb_running; w++) {
-            if (fb_save_seq != prev_seq) break;
+        for (uint32_t w = 0; w < 150u && fb_running; w++) {
+            if (__atomic_load_n(&fb_save_seq, __ATOMIC_ACQUIRE) != prev_seq) break;
             FN_USLEEP(100000u);
         }
         fb_shots_done = i + 1u;
@@ -176,28 +178,29 @@ static void *fb_worker(void *arg) {
             int far = (i & 1u) ? 1 : 0;
             step_focus_n(far, (i + 1u) * step_w);
         }
-        (void)exp_smooth;
+        (void)exp_smooth;   /* TODO: wire to AE lock when exposure-smooth contract is mapped */
     }
 
     fb_running = 0u;
+    __atomic_store_n(&fb_worker_active, 0u, __ATOMIC_RELEASE);
     return (void *)0;
 }
 
 __attribute__((used)) void fb_mark_saved(void) {
-    fb_save_seq++;
+    __atomic_add_fetch(&fb_save_seq, 1u, __ATOMIC_SEQ_CST);
 }
 
 __attribute__((naked, used)) void fb_write_still_hook(void) {
     __asm__ volatile (
-        "push {r0, r1, r2, r3, lr}\n"
+        "push {r0, r1, r2, r3, r12, lr}\n"  /* 6 regs = 24 bytes: keep 8-byte AAPCS stack alignment */
         "bl fb_mark_saved\n"
-        "pop {r0, r1, r2, r3, lr}\n"
+        "pop {r0, r1, r2, r3, r12, lr}\n"
         "stmdb sp!, {r4, r5, r6, r7, r8, r9, sl, fp, lr}\n"
         "mov r5, r1\n"
-        "ldr r1, 1f\n"
+        "ldr r1, 1f\n"            /* pre-resolved libObj + 0x0104b3c4 (skips 0x902554 add r1, pc) */
         "sub sp, #60\n"
         "mov r4, r0\n"
-        "add r7, sp, #16\n"      /* 0x902556: replayed too (we resume at 0x902558) */
+        "add r7, sp, #16\n"       /* 0x902556: replayed so we resume at 0x902558 */
         "ldr pc, 2f\n"
         ".align 2\n"
         "1: .word %c0\n"
@@ -215,12 +218,18 @@ static void sync_cfg(void) {
 __attribute__((used)) void fb_on(int on) {
     (void)on;
     sync_cfg();
-    if (fb_running) return;
+    if (__atomic_load_n(&fb_worker_active, __ATOMIC_ACQUIRE) || fb_running) return;
     fb_running = 1u;
+    __atomic_store_n(&fb_worker_active, 1u, __ATOMIC_RELEASE);
     fb_shots_done = 0u;
     fb_steps_done = 0u;
     uint32_t tid = 0;
-    FN_PTHREAD_CREATE(&tid, (void *)0, fb_worker, (void *)0);
+    if (FN_PTHREAD_CREATE(&tid, (void *)0, fb_worker, (void *)0) != 0) {
+        fb_running = 0u;
+        __atomic_store_n(&fb_worker_active, 0u, __ATOMIC_RELEASE);
+        return;
+    }
+    FN_PTHREAD_DETACH(tid);
 }
 
 __attribute__((used)) void fb_off(int on) {
