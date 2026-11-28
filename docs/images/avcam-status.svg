@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="824" viewBox="0 0 920 824" role="img" aria-label="av-cam.bin deep-analysis progress: 0.00%">
+<style>
+  text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+</style>
+<rect width="920" height="824" fill="#0d1117"/>
+<rect x="24" y="24" width="872" height="84" rx="8" fill="#161b22" stroke="#30363d"/>
+<text x="44" y="56" fill="#f0f6fc" font-size="20" font-weight="700">ILCE-6400 av-cam.bin Deep-Analysis Progress</text>
+<text x="44" y="82" fill="#8b949e" font-size="12" class="mono">ORIL v4 @ 0x635c6000  |  sha256 90d515cfec8b...  |  10 parallel shards</text>
+<text x="876" y="66" text-anchor="end" fill="#39c5cf" font-size="28" font-weight="700" class="mono">0.00%</text>
+<text x="876" y="86" text-anchor="end" fill="#8b949e" font-size="11">OVERALL MATURITY</text>
+<rect x="24" y="124" width="872" height="186" rx="8" fill="#161b22" stroke="#30363d"/>
+<text x="44" y="150" fill="#f0f6fc" font-size="14" font-weight="600">Weighted KPI Metrics</text>
+<text x="876" y="149" text-anchor="end" fill="#8b949e" font-size="11">UNMAPPED (0)</text>
+<rect x="790" y="140" width="10" height="10" rx="2" fill="#30363d"/>
+<text x="778" y="149" text-anchor="end" fill="#8b949e" font-size="11">LOCATED (0.25)</text>
+<rect x="680" y="140" width="10" height="10" rx="2" fill="#d29922"/>
+<text x="668" y="149" text-anchor="end" fill="#8b949e" font-size="11">DECOMPILED (0.6)</text>
+<rect x="558" y="140" width="10" height="10" rx="2" fill="#58a6ff"/>
+<text x="546" y="149" text-anchor="end" fill="#8b949e" font-size="11">SPEC_READY (1.0)</text>
+<rect x="436" y="140" width="10" height="10" rx="2" fill="#3fb950"/>
+<text x="44" y="183" fill="#c9d1d9" font-size="12" font-weight="600">ORIL ABI &amp; Boot</text>
+<text x="209" y="183" fill="#8b949e" font-size="11" class="mono">w=15%</text>
+<rect x="269" y="173" width="430" height="12" rx="4" fill="#21262d"/>
+<text x="876" y="183" text-anchor="end" fill="#f0f6fc" font-size="12" class="mono">  0.00%  (n=17)</text>
+<text x="44" y="209" fill="#c9d1d9" font-size="12" font-weight="600">av_command_table</text>
+<text x="209" y="209" fill="#8b949e" font-size="11" class="mono">w=20%</text>
+<rect x="269" y="199" width="430" height="12" rx="4" fill="#21262d"/>
+<text x="876" y="209" text-anchor="end" fill="#f0f6fc" font-size="12" class="mono">  0.00%  (n=285)</text>
+<text x="44" y="235" fill="#c9d1d9" font-size="12" font-weight="600">[TAG] Subsystems</text>
+<text x="209" y="235" fill="#8b949e" font-size="11" class="mono">w=15%</text>
+<rect x="269" y="225" width="430" height="12" rx="4" fill="#21262d"/>
+<text x="876" y="235" text-anchor="end" fill="#f0f6fc" font-size="12" class="mono">  0.00%  (n=748)</text>
+<text x="44" y="261" fill="#c9d1d9" font-size="12" font-weight="600">Candidate Functions</text>
+<text x="209" y="261" fill="#8b949e" font-size="11" class="mono">w=30%</text>
+<rect x="269" y="251" width="430" height="12" rx="4" fill="#21262d"/>
+<text x="876" y="261" text-anchor="end" fill="#f0f6fc" font-size="12" class="mono">  0.00%  (n=58,144)</text>
+<text x="44" y="287" fill="#c9d1d9" font-size="12" font-weight="600">MMIO 4 KiB Pages</text>
+<text x="209" y="287" fill="#8b949e" font-size="11" class="mono">w=20%</text>
+<rect x="269" y="277" width="430" height="12" rx="4" fill="#21262d"/>
+<text x="876" y="287" text-anchor="end" fill="#f0f6fc" font-size="12" class="mono">  0.00%  (n=1,220)</text>
+<rect x="24" y="326" width="872" height="428" rx="8" fill="#161b22" stroke="#30363d"/>
+<text x="44" y="352" fill="#f0f6fc" font-size="14" font-weight="600">Domain Shards (10 Parallel Workstreams)</text>
+<text x="44" y="376" fill="#8b949e" font-size="11">DOMAIN</text>
+<text x="314" y="376" fill="#8b949e" font-size="11">STAGE</text>
+<text x="384" y="376" fill="#8b949e" font-size="11">PROGRESS</text>
+<text x="664" y="376" fill="#8b949e" font-size="11">FUNCS / ITEMS</text>
+<text x="876" y="376" text-anchor="end" fill="#8b949e" font-size="11">MATURITY</text>
+<text x="44" y="405" fill="#c9d1d9" font-size="12">1A  ORIL boot, RTOS kernel and ...</text>
+<text x="314" y="405" fill="#8b949e" font-size="11" class="mono">P1/M1</text>
+<rect x="384" y="395" width="250" height="12" rx="4" fill="#21262d"/>
+<text x="664" y="405" fill="#8b949e" font-size="11" class="mono">226 fn / 143 it</text>
+<text x="876" y="405" text-anchor="end" fill="#f0f6fc" font-size="12" class="mono">  0.00%</text>
+<text x="44" y="439" fill="#c9d1d9" font-size="12">1B  Linux-LIRO boundary, UIPC/A...</text>
+<text x="314" y="439" fill="#8b949e" font-size="11" class="mono">P1/M1</text>
+<rect x="384" y="429" width="250" height="12" rx="4" fill="#21262d"/>
+<text x="664" y="439" fill="#8b949e" font-size="11" class="mono">218 fn / 296 it</text>
+<text x="876" y="439" text-anchor="end" fill="#f0f6fc" font-size="12" class="mono">  0.00%</text>
+<text x="44" y="473" fill="#c9d1d9" font-size="12">1C  DMM memory map, cache and D...</text>
+<text x="314" y="473" fill="#8b949e" font-size="11" class="mono">P1/M1</text>
+<rect x="384" y="463" width="250" height="12" rx="4" fill="#21262d"/>
+<text x="664" y="473" fill="#8b949e" font-size="11" class="mono">336 fn / 297 it</text>
+<text x="876" y="473" text-anchor="end" fill="#f0f6fc" font-size="12" class="mono">  0.00%</text>
+<text x="44" y="507" fill="#c9d1d9" font-size="12">2A  Mode sequencer, camera stat...</text>
+<text x="314" y="507" fill="#8b949e" font-size="11" class="mono">P2/M3</text>
+<rect x="384" y="497" width="250" height="12" rx="4" fill="#21262d"/>
+<text x="664" y="507" fill="#8b949e" font-size="11" class="mono">20 fn / 25 it</text>
+<text x="876" y="507" text-anchor="end" fill="#f0f6fc" font-size="12" class="mono">  0.00%</text>
+<text x="44" y="541" fill="#c9d1d9" font-size="12">2B  IMX284 sensor, readout timi...</text>
+<text x="314" y="541" fill="#8b949e" font-size="11" class="mono">P2/M3</text>
+<rect x="384" y="531" width="250" height="12" rx="4" fill="#21262d"/>
+<text x="664" y="541" fill="#8b949e" font-size="11" class="mono">167 fn / 59 it</text>
+<text x="876" y="541" text-anchor="end" fill="#f0f6fc" font-size="12" class="mono">  0.00%</text>
+<text x="44" y="575" fill="#c9d1d9" font-size="12">2C  ISP, imaging pipeline and A...</text>
+<text x="314" y="575" fill="#8b949e" font-size="11" class="mono">P2/M3</text>
+<rect x="384" y="565" width="250" height="12" rx="4" fill="#21262d"/>
+<text x="664" y="575" fill="#8b949e" font-size="11" class="mono">156 fn / 54 it</text>
+<text x="876" y="575" text-anchor="end" fill="#f0f6fc" font-size="12" class="mono">  0.00%</text>
+<text x="44" y="609" fill="#c9d1d9" font-size="12">2D  Still/video encoders, RAW d...</text>
+<text x="314" y="609" fill="#8b949e" font-size="11" class="mono">P2/M4</text>
+<rect x="384" y="599" width="250" height="12" rx="4" fill="#21262d"/>
+<text x="664" y="609" fill="#8b949e" font-size="11" class="mono">95 fn / 22 it</text>
+<text x="876" y="609" text-anchor="end" fill="#f0f6fc" font-size="12" class="mono">  0.00%</text>
+<text x="44" y="643" fill="#c9d1d9" font-size="12">2E  Display, EVF/LCD, HDMI, CEC...</text>
+<text x="314" y="643" fill="#8b949e" font-size="11" class="mono">P2/M3</text>
+<rect x="384" y="633" width="250" height="12" rx="4" fill="#21262d"/>
+<text x="664" y="643" fill="#8b949e" font-size="11" class="mono">50 fn / 42 it</text>
+<text x="876" y="643" text-anchor="end" fill="#f0f6fc" font-size="12" class="mono">  0.00%</text>
+<text x="44" y="677" fill="#c9d1d9" font-size="12">2F  Peripherals, sub-micro, E-m...</text>
+<text x="314" y="677" fill="#8b949e" font-size="11" class="mono">P2/M4</text>
+<rect x="384" y="667" width="250" height="12" rx="4" fill="#21262d"/>
+<text x="664" y="677" fill="#8b949e" font-size="11" class="mono">94 fn / 75 it</text>
+<text x="876" y="677" text-anchor="end" fill="#f0f6fc" font-size="12" class="mono">  0.00%</text>
+<text x="44" y="711" fill="#c9d1d9" font-size="12">9R  Residue: unclassified tags,...</text>
+<text x="314" y="711" fill="#8b949e" font-size="11" class="mono">P2/none</text>
+<rect x="384" y="701" width="250" height="12" rx="4" fill="#21262d"/>
+<text x="664" y="711" fill="#8b949e" font-size="11" class="mono">56,782 fn / 1,257 it</text>
+<text x="876" y="711" text-anchor="end" fill="#f0f6fc" font-size="12" class="mono">  0.00%</text>
+<text x="24" y="782" fill="#8b949e" font-size="11">Generated by tools/research/render_avcam_status.py from docs/avcam-map/shards/ (formula: 0.15*ABI + 0.20*CMD + 0.15*TAG + 0.30*FUNC + 0.20*MMIO)</text>
+</svg>

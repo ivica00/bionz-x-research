@@ -33,8 +33,8 @@ python3 -m tools.research.pack_mod_v2 \
   --name "OpenGate A1" \
   --on oga1_on \
   --off oga1_off \
-  --hook "0x079b472c:f8b50446d0f8d85000af0dbb:tkhd_hook_tramp" \
-  --hook "0x079b4a74:f0b593b00c4600af06460b68:stsd_hook_tramp" \
+  --hook "0x079a52ac:f8b50446d0f8d85000af0dbb:tkhd_hook_tramp" \
+  --hook "0x079a55f4:f0b593b00c4600af06460b68:stsd_hook_tramp" \
   --data-symbol AV_PATCHES \
   --data-symbol VU_CELL_OFFS \
   --reloc-layout tools/native_camera/mlv2/reference_layout_ilce6400.txt \

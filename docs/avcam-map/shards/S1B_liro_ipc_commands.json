@@ -1,0 +1,3862 @@
+{
+  "schema_version": 1,
+  "domain": "1B",
+  "title": "Linux-LIRO boundary, UIPC/ADF/SDF and the command dispatcher",
+  "phase": 1,
+  "milestone": "M1",
+  "summary": "How im.elf and Linux reach av-cam: shared-memory rings, UIPC framing, the [ADF]/[SDF]/[VDF]/[VEF] message families, and the 285-entry av_command_table.",
+  "owner": "unassigned",
+  "status": "UNMAPPED",
+  "image": {
+    "sha256": "90d515cfec8b936f1ba9a69dcac462816b880297752a652474d67c4bba39125e",
+    "base": "0x635c6000"
+  },
+  "questions": [
+    "What is the exact shared-memory layout of the LIRO copy and the UIPC ring (header, slot size, producer/consumer indices, ownership)?",
+    "What are the argument and return conventions of an av_command_table handler, and what does the checker word gate?",
+    "How are ADF/SDF/VDF/VEF message families framed and routed, and which of them are synchronous?",
+    "Which command ids does im.elf send during boot (CheckerBootState, ObjMic, ObjPower), and what does av-cam do differently for a timeout?"
+  ],
+  "deliverable": "UIPC/command ABI specification with a byte-level ring contract and a table of the 285 command ids with handler signatures. Blocks M2.",
+  "scope": {
+    "commands": 285,
+    "tags": 11,
+    "mmio_pages": 0,
+    "abi": 0,
+    "functions": 218
+  },
+  "items": {
+    "commands": [
+      {
+        "id": 16384,
+        "handler": "0x63bdfd41",
+        "checker": "0x00000000",
+        "flag": 1673357109,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16385,
+        "handler": "0x63dc41e7",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16386,
+        "handler": "0x63bdf259",
+        "checker": "0x00000001",
+        "flag": 1673357345,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16387,
+        "handler": "0x63bdf181",
+        "checker": "0x00000001",
+        "flag": 1673357397,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16388,
+        "handler": "0x63bdf05d",
+        "checker": "0x00000001",
+        "flag": 1675379153,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16389,
+        "handler": "0x63dc42ad",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16390,
+        "handler": "0x63bddc11",
+        "checker": "0x00000000",
+        "flag": 1673362149,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16391,
+        "handler": "0x63bddcc5",
+        "checker": "0x00000000",
+        "flag": 1673361689,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16393,
+        "handler": "0x63bdfaa1",
+        "checker": "0x00000001",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16394,
+        "handler": "0x63bdfa71",
+        "checker": "0x00000001",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16396,
+        "handler": "0x63bdef89",
+        "checker": "0x00000001",
+        "flag": 1673357509,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16397,
+        "handler": "0x63bdef09",
+        "checker": "0x00000001",
+        "flag": 1673357765,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16398,
+        "handler": "0x63bdeeb1",
+        "checker": "0x00000001",
+        "flag": 1673357853,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16399,
+        "handler": "0x63be0b55",
+        "checker": "0x00000001",
+        "flag": 1673357985,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16400,
+        "handler": "0x63bdee75",
+        "checker": "0x00000001",
+        "flag": 1673358037,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16401,
+        "handler": "0x63bdee39",
+        "checker": "0x00000001",
+        "flag": 1673358089,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16402,
+        "handler": "0x63bdedfd",
+        "checker": "0x00000001",
+        "flag": 1673358141,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16403,
+        "handler": "0x63bdedc1",
+        "checker": "0x00000001",
+        "flag": 1673358193,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16404,
+        "handler": "0x63bded85",
+        "checker": "0x00000001",
+        "flag": 1673358249,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16405,
+        "handler": "0x63bded3d",
+        "checker": "0x00000000",
+        "flag": 1673358301,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16406,
+        "handler": "0x63bded01",
+        "checker": "0x00000000",
+        "flag": 1673358413,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16407,
+        "handler": "0x63bdecc5",
+        "checker": "0x00000000",
+        "flag": 1673358465,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16408,
+        "handler": "0x63bdec89",
+        "checker": "0x00000000",
+        "flag": 1673358517,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16409,
+        "handler": "0x63bde651",
+        "checker": "0x00000001",
+        "flag": 1673359061,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16410,
+        "handler": "0x63bde615",
+        "checker": "0x00000001",
+        "flag": 1673359113,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16411,
+        "handler": "0x63be0f35",
+        "checker": "0x00000001",
+        "flag": 1673359165,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "1C",
+          "handler_domain": "1C",
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16412,
+        "handler": "0x63bde5bd",
+        "checker": "0x00000001",
+        "flag": 1673359353,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16413,
+        "handler": "0x63bdec25",
+        "checker": "0x00000000",
+        "flag": 1673358569,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "1C",
+          "handler_domain": "1C",
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16414,
+        "handler": "0x63bdebe9",
+        "checker": "0x00000000",
+        "flag": 1673358653,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16416,
+        "handler": "0x63bdd889",
+        "checker": "0x00000000",
+        "flag": 1673361189,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16417,
+        "handler": "0x63bdeb9d",
+        "checker": "0x00000000",
+        "flag": 1673358705,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "1C",
+          "handler_domain": "1C",
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16418,
+        "handler": "0x63bdeb49",
+        "checker": "0x00000000",
+        "flag": 1673358789,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16419,
+        "handler": "0x63bdeac5",
+        "checker": "0x00000000",
+        "flag": 1673358873,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16420,
+        "handler": "0x63bdea39",
+        "checker": "0x00000000",
+        "flag": 1673358925,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16421,
+        "handler": "0x63bde9fd",
+        "checker": "0x00000000",
+        "flag": 1673359009,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16422,
+        "handler": "0x63dc41eb",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16423,
+        "handler": "0x63bde2d5",
+        "checker": "0x00000000",
+        "flag": 1673360237,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16424,
+        "handler": "0x63bde259",
+        "checker": "0x00000000",
+        "flag": 1673360341,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16425,
+        "handler": "0x63bde14d",
+        "checker": "0x00000000",
+        "flag": 1673360393,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16426,
+        "handler": "0x63bdf9a5",
+        "checker": "0x00000000",
+        "flag": 1673360753,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16427,
+        "handler": "0x63bde08d",
+        "checker": "0x00000000",
+        "flag": 1673360865,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16428,
+        "handler": "0x63bde541",
+        "checker": "0x00000000",
+        "flag": 1673359577,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16429,
+        "handler": "0x63bde501",
+        "checker": "0x00000000",
+        "flag": 1673359633,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16430,
+        "handler": "0x63bde4c5",
+        "checker": "0x00000000",
+        "flag": 1673359689,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16431,
+        "handler": "0x63bde489",
+        "checker": "0x00000000",
+        "flag": 1673359741,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16432,
+        "handler": "0x63bde449",
+        "checker": "0x00000000",
+        "flag": 1673359793,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16433,
+        "handler": "0x63bde3dd",
+        "checker": "0x00000000",
+        "flag": 1673359877,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "1C",
+          "handler_domain": "1C",
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16434,
+        "handler": "0x63bde345",
+        "checker": "0x00000000",
+        "flag": 1673360033,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16435,
+        "handler": "0x63bde581",
+        "checker": "0x00000001",
+        "flag": 1673359525,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16436,
+        "handler": "0x63dc41f7",
+        "checker": "0x00000001",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16437,
+        "handler": "0x63be0231",
+        "checker": "0x00000001",
+        "flag": 1673360917,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16438,
+        "handler": "0x63be0a7d",
+        "checker": "0x00000000",
+        "flag": 1673361053,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16439,
+        "handler": "0x63bddf65",
+        "checker": "0x00000001",
+        "flag": 1673360969,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16440,
+        "handler": "0x63bddf1d",
+        "checker": "0x00000000",
+        "flag": 1673361241,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16441,
+        "handler": "0x63bdde69",
+        "checker": "0x00000001",
+        "flag": 1673361325,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16442,
+        "handler": "0x63bdde2d",
+        "checker": "0x00000001",
+        "flag": 1673361377,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16443,
+        "handler": "0x63bdddf1",
+        "checker": "0x00000001",
+        "flag": 1673361429,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16444,
+        "handler": "0x63bdddb5",
+        "checker": "0x00000001",
+        "flag": 1673361481,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16445,
+        "handler": "0x63bddd79",
+        "checker": "0x00000001",
+        "flag": 1673361533,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16446,
+        "handler": "0x63bddd3d",
+        "checker": "0x00000001",
+        "flag": 1673361585,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16447,
+        "handler": "0x63bddd01",
+        "checker": "0x00000001",
+        "flag": 1673361637,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16448,
+        "handler": "0x63dc41fb",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16454,
+        "handler": "0x63bde979",
+        "checker": "0x00000000",
+        "flag": 1673361741,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16455,
+        "handler": "0x63dc41f3",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16456,
+        "handler": "0x63bdea7d",
+        "checker": "0x00000000",
+        "flag": 1673361845,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16461,
+        "handler": "0x63bddc89",
+        "checker": "0x00000000",
+        "flag": 1673361793,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16462,
+        "handler": "0x63bddee1",
+        "checker": "0x00000001",
+        "flag": 1673361897,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16463,
+        "handler": "0x63dc41ef",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16464,
+        "handler": "0x63bdeb0d",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16465,
+        "handler": "0x63bddea5",
+        "checker": "0x00000001",
+        "flag": 1673361949,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16466,
+        "handler": "0x63be0329",
+        "checker": "0x00000001",
+        "flag": 1673362317,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16467,
+        "handler": "0x63bdffb5",
+        "checker": "0x00000000",
+        "flag": 1673362001,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16468,
+        "handler": "0x63bddc4d",
+        "checker": "0x00000000",
+        "flag": 1673362097,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16469,
+        "handler": "0x63bde9b5",
+        "checker": "0x00000000",
+        "flag": 1673362201,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16470,
+        "handler": "0x63bdda69",
+        "checker": "0x00000001",
+        "flag": 1673362577,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16471,
+        "handler": "0x63bddb81",
+        "checker": "0x00000001",
+        "flag": 1673362369,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16472,
+        "handler": "0x63bddb1d",
+        "checker": "0x00000000",
+        "flag": 1673362421,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16473,
+        "handler": "0x63bddae1",
+        "checker": "0x00000000",
+        "flag": 1673362473,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16474,
+        "handler": "0x63bddaa5",
+        "checker": "0x00000000",
+        "flag": 1673362525,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16475,
+        "handler": "0x63bde93d",
+        "checker": "0x00000000",
+        "flag": 1673362629,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16476,
+        "handler": "0x63bdfa21",
+        "checker": "0x00000001",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16477,
+        "handler": "0x63bde901",
+        "checker": "0x00000000",
+        "flag": 1673362681,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16478,
+        "handler": "0x63bde8c5",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16479,
+        "handler": "0x63bde889",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16480,
+        "handler": "0x63bdd9b5",
+        "checker": "0x00000000",
+        "flag": 1673362733,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16481,
+        "handler": "0x63bdd93d",
+        "checker": "0x00000000",
+        "flag": 1673362837,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16482,
+        "handler": "0x63bdd901",
+        "checker": "0x00000000",
+        "flag": 1673362889,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16483,
+        "handler": "0x63bdd979",
+        "checker": "0x00000001",
+        "flag": 1673362785,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16484,
+        "handler": "0x63bde815",
+        "checker": "0x00000000",
+        "flag": 1673362941,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16485,
+        "handler": "0x63bde68d",
+        "checker": "0x00000000",
+        "flag": 1673363037,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16486,
+        "handler": "0x63bdd581",
+        "checker": "0x00000000",
+        "flag": 1673363133,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16487,
+        "handler": "0x63be11e5",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16488,
+        "handler": "0x63be1161",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16490,
+        "handler": "0x63bde7c5",
+        "checker": "0x00000000",
+        "flag": 1673364573,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16491,
+        "handler": "0x63bde789",
+        "checker": "0x00000000",
+        "flag": 1673364657,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16492,
+        "handler": "0x63bde74d",
+        "checker": "0x00000000",
+        "flag": 1673364709,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16493,
+        "handler": "0x63bde711",
+        "checker": "0x00000000",
+        "flag": 1673364761,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16494,
+        "handler": "0x63bdda2d",
+        "checker": "0x00000000",
+        "flag": 1673364813,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16495,
+        "handler": "0x63bdd9f1",
+        "checker": "0x00000000",
+        "flag": 1673364865,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16496,
+        "handler": "0x63bdd8c5",
+        "checker": "0x00000000",
+        "flag": 1673364917,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16497,
+        "handler": "0x63bdd84d",
+        "checker": "0x00000000",
+        "flag": 1673364969,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16498,
+        "handler": "0x63bdd505",
+        "checker": "0x00000000",
+        "flag": 1673365021,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16499,
+        "handler": "0x63bdd541",
+        "checker": "0x00000000",
+        "flag": 1673365073,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "1C",
+          "handler_domain": "1C",
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16500,
+        "handler": "0x63bdf529",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16501,
+        "handler": "0x63be042d",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16502,
+        "handler": "0x63be0499",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16503,
+        "handler": "0x63be0505",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16504,
+        "handler": "0x63bdcf59",
+        "checker": "0x00000000",
+        "flag": 1673365157,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16505,
+        "handler": "0x63be0571",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16506,
+        "handler": "0x63bdd4c9",
+        "checker": "0x00000000",
+        "flag": 1673365261,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16507,
+        "handler": "0x63bdd409",
+        "checker": "0x00000000",
+        "flag": 1673365313,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16508,
+        "handler": "0x63bdd3cd",
+        "checker": "0x00000000",
+        "flag": 1673365365,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16509,
+        "handler": "0x63bdd391",
+        "checker": "0x00000000",
+        "flag": 1673365417,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16511,
+        "handler": "0x63bdd355",
+        "checker": "0x00000000",
+        "flag": 1673365469,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16512,
+        "handler": "0x63bde295",
+        "checker": "0x00000000",
+        "flag": 1673360289,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16514,
+        "handler": "0x63be03c1",
+        "checker": "0x00000000",
+        "flag": 1673365521,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16515,
+        "handler": "0x63bdd221",
+        "checker": "0x00000000",
+        "flag": 1673365573,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16516,
+        "handler": "0x63bdd1e5",
+        "checker": "0x00000000",
+        "flag": 1673365689,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16517,
+        "handler": "0x63bdd1a9",
+        "checker": "0x00000000",
+        "flag": 1673365741,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16519,
+        "handler": "0x63bdd16d",
+        "checker": "0x00000000",
+        "flag": 1673365793,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16521,
+        "handler": "0x63bdd131",
+        "checker": "0x00000000",
+        "flag": 1673365845,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16523,
+        "handler": "0x63bdd0f5",
+        "checker": "0x00000000",
+        "flag": 1673365897,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16524,
+        "handler": "0x63bdf93d",
+        "checker": "0x00000000",
+        "flag": 1673365949,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16525,
+        "handler": "0x63be10ed",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16526,
+        "handler": "0x63be05dd",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16527,
+        "handler": "0x63bdd0b5",
+        "checker": "0x00000000",
+        "flag": 1673366001,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16528,
+        "handler": "0x63be09a5",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16529,
+        "handler": "0x63bde0c9",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16531,
+        "handler": "0x63bdce01",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16533,
+        "handler": "0x63bdf90d",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16534,
+        "handler": "0x63bdcdc5",
+        "checker": "0x00000000",
+        "flag": 1673366085,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16535,
+        "handler": "0x63be1521",
+        "checker": "0x00000000",
+        "flag": 1673366137,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16536,
+        "handler": "0x63bdcd85",
+        "checker": "0x00000000",
+        "flag": 1673366189,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "1C",
+          "handler_domain": "1C",
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16537,
+        "handler": "0x63bdcd49",
+        "checker": "0x00000000",
+        "flag": 1673366241,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16538,
+        "handler": "0x63bdf7e5",
+        "checker": "0x00000000",
+        "flag": 1673366293,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16540,
+        "handler": "0x63bdcd0d",
+        "checker": "0x00000000",
+        "flag": 1673366685,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16541,
+        "handler": "0x63dc41fb",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16542,
+        "handler": "0x63bdf005",
+        "checker": "0x00000001",
+        "flag": 1673366737,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16544,
+        "handler": "0x63bdccd1",
+        "checker": "0x00000000",
+        "flag": 1673366797,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16545,
+        "handler": "0x63bdf4e5",
+        "checker": "0x00000000",
+        "flag": 1673366849,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16546,
+        "handler": "0x63bdf4a1",
+        "checker": "0x00000000",
+        "flag": 1673366901,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16547,
+        "handler": "0x63bdf45d",
+        "checker": "0x00000000",
+        "flag": 1673366953,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16549,
+        "handler": "0x63bdcc95",
+        "checker": "0x00000000",
+        "flag": 1673367005,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16550,
+        "handler": "0x63bdfae5",
+        "checker": "0x00000001",
+        "flag": 1673367057,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16551,
+        "handler": "0x63bdcc59",
+        "checker": "0x00000001",
+        "flag": 1673367109,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16552,
+        "handler": "0x63bdcba5",
+        "checker": "0x00000000",
+        "flag": 1673367161,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16553,
+        "handler": "0x63bdcc1d",
+        "checker": "0x00000001",
+        "flag": 1673367213,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16554,
+        "handler": "0x63bdcbe1",
+        "checker": "0x00000001",
+        "flag": 1673367265,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16555,
+        "handler": "0x63bdf3f9",
+        "checker": "0x00000000",
+        "flag": 1673367317,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16556,
+        "handler": "0x63bdcb69",
+        "checker": "0x00000000",
+        "flag": 1673367461,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16557,
+        "handler": "0x63bdcb2d",
+        "checker": "0x00000000",
+        "flag": 1673367513,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16558,
+        "handler": "0x63bdcaf1",
+        "checker": "0x00000000",
+        "flag": 1673367565,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16559,
+        "handler": "0x63bdf205",
+        "checker": "0x00000000",
+        "flag": 1673367617,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16560,
+        "handler": "0x63bdf1c9",
+        "checker": "0x00000000",
+        "flag": 1673367681,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16561,
+        "handler": "0x63bdcf1d",
+        "checker": "0x00000000",
+        "flag": 1673365209,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16562,
+        "handler": "0x63bdcab5",
+        "checker": "0x00000000",
+        "flag": 1673367733,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16563,
+        "handler": "0x63bdca79",
+        "checker": "0x00000000",
+        "flag": 1673367785,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16564,
+        "handler": "0x63bdca3d",
+        "checker": "0x00000000",
+        "flag": 1673367837,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16565,
+        "handler": "0x63bdca01",
+        "checker": "0x00000000",
+        "flag": 1673367889,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16566,
+        "handler": "0x63bdc9a9",
+        "checker": "0x00000000",
+        "flag": 1673367941,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "1C",
+          "handler_domain": "1C",
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16567,
+        "handler": "0x63bde3a1",
+        "checker": "0x00000000",
+        "flag": 1673368017,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16568,
+        "handler": "0x63bdc985",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16569,
+        "handler": "0x63bdc92d",
+        "checker": "0x00000000",
+        "flag": 1673368069,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16570,
+        "handler": "0x63be1335",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "1C",
+          "handler_domain": "1C",
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16571,
+        "handler": "0x63be129d",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16572,
+        "handler": "0x63bdf8d5",
+        "checker": "0x00000001",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16573,
+        "handler": "0x63be0649",
+        "checker": "0x00000000",
+        "flag": 1673368137,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16574,
+        "handler": "0x63bdc89d",
+        "checker": "0x00000000",
+        "flag": 1673368269,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16575,
+        "handler": "0x63bdc849",
+        "checker": "0x00000000",
+        "flag": 1673368373,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16576,
+        "handler": "0x63bdf789",
+        "checker": "0x00000000",
+        "flag": 1673368425,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16577,
+        "handler": "0x63bdc771",
+        "checker": "0x00000000",
+        "flag": 1673368477,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16578,
+        "handler": "0x63bdf5c5",
+        "checker": "0x00000000",
+        "flag": 1673368321,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16579,
+        "handler": "0x63dc41fb",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16583,
+        "handler": "0x63bdf361",
+        "checker": "0x00000000",
+        "flag": 1673368577,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16584,
+        "handler": "0x63bdc6ad",
+        "checker": "0x00000000",
+        "flag": 1673368917,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16585,
+        "handler": "0x63bdc671",
+        "checker": "0x00000000",
+        "flag": 1673369321,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16586,
+        "handler": "0x63bdef4d",
+        "checker": "0x00000000",
+        "flag": 1673369373,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16587,
+        "handler": "0x63bdc52d",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16588,
+        "handler": "0x63be0075",
+        "checker": "0x00000000",
+        "flag": 1673369425,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16589,
+        "handler": "0x63be02a5",
+        "checker": "0x00000000",
+        "flag": 1673369541,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16590,
+        "handler": "0x63bdc4e1",
+        "checker": "0x00000000",
+        "flag": 1673369637,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16591,
+        "handler": "0x63bdc7dd",
+        "checker": "0x00000000",
+        "flag": 1673369705,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16592,
+        "handler": "0x63bdc4a5",
+        "checker": "0x00000000",
+        "flag": 1673369805,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16593,
+        "handler": "0x63bdc469",
+        "checker": "0x00000000",
+        "flag": 1673369857,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16594,
+        "handler": "0x63be0e9d",
+        "checker": "0x00000000",
+        "flag": 1673370057,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16596,
+        "handler": "0x63be0e01",
+        "checker": "0x00000000",
+        "flag": 1673370213,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16597,
+        "handler": "0x63bdd48d",
+        "checker": "0x00000000",
+        "flag": 1673370369,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16599,
+        "handler": "0x63bdac99",
+        "checker": "0x00000000",
+        "flag": 1673370421,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16600,
+        "handler": "0x63bdacad",
+        "checker": "0x00000000",
+        "flag": 1673370473,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16601,
+        "handler": "0x63bdacc1",
+        "checker": "0x00000000",
+        "flag": 1673370525,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16602,
+        "handler": "0x63bdacd5",
+        "checker": "0x00000000",
+        "flag": 1673370577,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16603,
+        "handler": "0x63bdd451",
+        "checker": "0x00000000",
+        "flag": 1673370665,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16604,
+        "handler": "0x63bdc635",
+        "checker": "0x00000000",
+        "flag": 1673370717,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16605,
+        "handler": "0x63bdc5c9",
+        "checker": "0x00000000",
+        "flag": 1673370769,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16606,
+        "handler": "0x63bdf685",
+        "checker": "0x00000001",
+        "flag": 1673371037,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16607,
+        "handler": "0x63bdacf9",
+        "checker": "0x00000000",
+        "flag": 1673371089,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16608,
+        "handler": "0x63bdad35",
+        "checker": "0x00000000",
+        "flag": 1673370917,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16609,
+        "handler": "0x63bdc3f1",
+        "checker": "0x00000000",
+        "flag": 1673371141,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16610,
+        "handler": "0x63bdad0d",
+        "checker": "0x00000000",
+        "flag": 1673371349,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16611,
+        "handler": "0x63bdad21",
+        "checker": "0x00000000",
+        "flag": 1673371401,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16612,
+        "handler": "0x63bdc301",
+        "checker": "0x00000000",
+        "flag": 1673371453,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16613,
+        "handler": "0x63bdc2c5",
+        "checker": "0x00000000",
+        "flag": 1673371505,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16614,
+        "handler": "0x63bdc289",
+        "checker": "0x00000000",
+        "flag": 1673371557,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16615,
+        "handler": "0x63bdc225",
+        "checker": "0x00000000",
+        "flag": 1673371609,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16616,
+        "handler": "0x63bdc1e9",
+        "checker": "0x00000000",
+        "flag": 1673371661,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16617,
+        "handler": "0x63bdc1a9",
+        "checker": "0x00000000",
+        "flag": 1673371713,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16618,
+        "handler": "0x63bdc16d",
+        "checker": "0x00000000",
+        "flag": 1673371765,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16619,
+        "handler": "0x63bdc379",
+        "checker": "0x00000000",
+        "flag": 1673371245,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16620,
+        "handler": "0x63bdc33d",
+        "checker": "0x00000000",
+        "flag": 1673371297,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16621,
+        "handler": "0x63bdc131",
+        "checker": "0x00000000",
+        "flag": 1673372429,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16622,
+        "handler": "0x63bdc0f1",
+        "checker": "0x00000000",
+        "flag": 1673372481,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16623,
+        "handler": "0x63bdc0b1",
+        "checker": "0x00000000",
+        "flag": 1673372537,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16624,
+        "handler": "0x63bdc059",
+        "checker": "0x00000000",
+        "flag": 1673372593,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16625,
+        "handler": "0x63bdc015",
+        "checker": "0x00000000",
+        "flag": 1673372725,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16626,
+        "handler": "0x63bdad59",
+        "checker": "0x00000000",
+        "flag": 1673371817,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16627,
+        "handler": "0x63bdad89",
+        "checker": "0x00000000",
+        "flag": 1673372033,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16628,
+        "handler": "0x63bdbf59",
+        "checker": "0x00000000",
+        "flag": 1673372785,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16629,
+        "handler": "0x63bdbf05",
+        "checker": "0x00000000",
+        "flag": 1673372869,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16630,
+        "handler": "0x63be0921",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16631,
+        "handler": "0x63bdbbe5",
+        "checker": "0x00000000",
+        "flag": 1673373021,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16632,
+        "handler": "0x63bdae09",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16633,
+        "handler": "0x63bdbfd9",
+        "checker": "0x00000000",
+        "flag": 1673373073,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16634,
+        "handler": "0x63bdbf9d",
+        "checker": "0x00000000",
+        "flag": 1673373125,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16635,
+        "handler": "0x63bdae1d",
+        "checker": "0x00000000",
+        "flag": 1673373177,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16636,
+        "handler": "0x63bdae31",
+        "checker": "0x00000000",
+        "flag": 1673373229,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16637,
+        "handler": "0x63bdf145",
+        "checker": "0x00000000",
+        "flag": 1673373281,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16638,
+        "handler": "0x63be1479",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16639,
+        "handler": "0x63be13e9",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16640,
+        "handler": "0x63bdae45",
+        "checker": "0x00000000",
+        "flag": 1673373333,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16641,
+        "handler": "0x63bdae75",
+        "checker": "0x00000000",
+        "flag": 1673373549,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16642,
+        "handler": "0x63bdaea5",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16643,
+        "handler": "0x63bdbba9",
+        "checker": "0x00000001",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16644,
+        "handler": "0x63bdbb49",
+        "checker": "0x00000000",
+        "flag": 1673373765,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16645,
+        "handler": "0x63bdbb0d",
+        "checker": "0x00000000",
+        "flag": 1673373901,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16646,
+        "handler": "0x63bdbacd",
+        "checker": "0x00000000",
+        "flag": 1673373953,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16647,
+        "handler": "0x63bdba91",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16648,
+        "handler": "0x63bdba51",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16649,
+        "handler": "0x63bdfbc9",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16650,
+        "handler": "0x63bdba15",
+        "checker": "0x00000000",
+        "flag": 1673374089,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16651,
+        "handler": "0x63bdb9d9",
+        "checker": "0x00000000",
+        "flag": 1673374037,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16652,
+        "handler": "0x63bdb99d",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16653,
+        "handler": "0x63bdc3b5",
+        "checker": "0x00000000",
+        "flag": 1673371193,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16654,
+        "handler": "0x63bdb961",
+        "checker": "0x00000000",
+        "flag": 1673374141,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16655,
+        "handler": "0x63bdb925",
+        "checker": "0x00000000",
+        "flag": 1673374193,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16656,
+        "handler": "0x63bdaf8d",
+        "checker": "0x00000000",
+        "flag": 1673374245,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16657,
+        "handler": "0x63bdb8e9",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16658,
+        "handler": "0x63bdb8a1",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16659,
+        "handler": "0x63bdb861",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16660,
+        "handler": "0x63bdb825",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16661,
+        "handler": "0x63bdb721",
+        "checker": "0x00000000",
+        "flag": 1673374297,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16662,
+        "handler": "0x63bdb6e5",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16663,
+        "handler": "0x63bdb67d",
+        "checker": "0x00000001",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16665,
+        "handler": "0x63bdb595",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16666,
+        "handler": "0x63bdbeb1",
+        "checker": "0x00000000",
+        "flag": 1673372945,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16667,
+        "handler": "0x63dc41fb",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16669,
+        "handler": "0x63be078d",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16670,
+        "handler": "0x63dc41fb",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16671,
+        "handler": "0x63bdb45d",
+        "checker": "0x00000001",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16672,
+        "handler": "0x63bdb559",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16673,
+        "handler": "0x63bdc42d",
+        "checker": "0x00000000",
+        "flag": 1673369909,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16674,
+        "handler": "0x63bdf6c5",
+        "checker": "0x00000000",
+        "flag": 1673369961,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16675,
+        "handler": "0x63bdb51d",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16676,
+        "handler": "0x63bdb4e1",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16677,
+        "handler": "0x63bdbdc5",
+        "checker": "0x00000000",
+        "flag": 1675379155,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16678,
+        "handler": "0x63bdbd71",
+        "checker": "0x00000000",
+        "flag": 1675379157,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16679,
+        "handler": "0x63bdbd1d",
+        "checker": "0x00000000",
+        "flag": 1675379159,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16680,
+        "handler": "0x63bdbcc9",
+        "checker": "0x00000000",
+        "flag": 1675379161,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16681,
+        "handler": "0x63bdbc75",
+        "checker": "0x00000000",
+        "flag": 1675379163,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16682,
+        "handler": "0x63bdbc21",
+        "checker": "0x00000000",
+        "flag": 1675379165,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16683,
+        "handler": "0x63bdafa1",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16684,
+        "handler": "0x63be1581",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16685,
+        "handler": "0x63be00fd",
+        "checker": "0x00000000",
+        "flag": 1673360393,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16686,
+        "handler": "0x63bdb401",
+        "checker": "0x00000001",
+        "flag": 1673374509,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16687,
+        "handler": "0x63bdafb5",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16688,
+        "handler": "0x63dc4269",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16689,
+        "handler": "0x63bdb3c5",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16690,
+        "handler": "0x63bdb389",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16691,
+        "handler": "0x63bdb34d",
+        "checker": "0x00000000",
+        "flag": 1673374561,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16692,
+        "handler": "0x63bdb299",
+        "checker": "0x00000000",
+        "flag": 1673374717,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16693,
+        "handler": "0x63bdb2d5",
+        "checker": "0x00000000",
+        "flag": 1673374613,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16694,
+        "handler": "0x63bdb25d",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16695,
+        "handler": "0x63bdb221",
+        "checker": "0x00000000",
+        "flag": 1673374769,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16696,
+        "handler": "0x63bdb311",
+        "checker": "0x00000000",
+        "flag": 1673374665,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16697,
+        "handler": "0x63bdb1e5",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      },
+      {
+        "id": 16698,
+        "handler": "0x63bdb1a9",
+        "checker": "0x00000000",
+        "flag": 1675379167,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "candidate": "9R",
+          "handler_domain": null,
+          "checker_domain": null
+        }
+      }
+    ],
+    "tags": [
+      {
+        "tag": "ADF",
+        "strings": 506,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1B"
+        }
+      },
+      {
+        "tag": "AdfCmdInputCtrl",
+        "strings": 10,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1B"
+        }
+      },
+      {
+        "tag": "SDF",
+        "strings": 177,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1B"
+        }
+      },
+      {
+        "tag": "VDF",
+        "strings": 120,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1B"
+        }
+      },
+      {
+        "tag": "VEF",
+        "strings": 135,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1B"
+        }
+      },
+      {
+        "tag": "VEF-ABT",
+        "strings": 3,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1B"
+        }
+      },
+      {
+        "tag": "VEF-BUG",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1B"
+        }
+      },
+      {
+        "tag": "VEF-DFI",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1B"
+        }
+      },
+      {
+        "tag": "VEF-NOF",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1B"
+        }
+      },
+      {
+        "tag": "VEF_DEBUGMON",
+        "strings": 3,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1B"
+        }
+      },
+      {
+        "tag": "adf",
+        "strings": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1B"
+        }
+      }
+    ],
+    "mmio": [],
+    "abi": []
+  },
+  "functions": {
+    "total": 218,
+    "unmapped": 218,
+    "located": 0,
+    "decompiled": 0,
+    "spec_ready": 0,
+    "entry_points": [
+      "0x637481ba",
+      "0x6378a2aa",
+      "0x635fd2ec",
+      "0x636097c0",
+      "0x63641ed4",
+      "0x636ab14c",
+      "0x636dfd1a",
+      "0x636ec2fa",
+      "0x636ec528",
+      "0x636f07cc",
+      "0x636f6620",
+      "0x6372ff20"
+    ]
+  },
+  "notes": []
+}

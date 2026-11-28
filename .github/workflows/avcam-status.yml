@@ -1,0 +1,79 @@
+name: Refresh av-cam.bin Status SVG
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/avcam-map/shards/**'
+      - 'docs/avcam-map/denominators.json'
+      - 'tools/research/render_avcam_status.py'
+      - 'tools/research/avcam_dashboard.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: avcam-status-svg
+  cancel-in-progress: false
+
+jobs:
+  refresh-avcam-svg:
+    name: Validate Shards & Refresh av-cam.bin Status SVG
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Check shard merge threshold (every 3 PR/commits)
+        id: gate
+        run: |
+          LAST_SVG=$(git log -n 1 --format=%H -- docs/images/avcam-status.svg || true)
+          if [ -z "$LAST_SVG" ]; then
+            COUNT=999
+          else
+            COUNT=$(git rev-list --count "${LAST_SVG}..HEAD" -- docs/avcam-map/shards/ docs/avcam-map/denominators.json)
+          fi
+          echo "commits_since_svg=$COUNT"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.count >= 3
+        uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.15.2"
+
+      - name: Validate shards against denominators
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.count >= 3
+        run: python -m tools.research.avcam_dashboard --check --out docs/avcam-map
+
+      - name: Render docs/images/avcam-status.svg
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.count >= 3
+        run: python -m tools.research.render_avcam_status --write
+
+      - name: Open or update PR with refreshed SVG
+        if: github.event_name == 'workflow_dispatch' || steps.gate.outputs.count >= 3
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet -- docs/images/avcam-status.svg; then
+            echo "No SVG changes to commit."
+            exit 0
+          fi
+          BRANCH="bot/avcam-status-svg"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add docs/images/avcam-status.svg
+          git commit -m "chore(avcam): refresh av-cam.bin status svg"
+          git push --force-with-lease origin "$BRANCH"
+          if ! gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' | grep -q .; then
+            gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "chore(avcam): refresh av-cam.bin status SVG" \
+              --body "Automated refresh of \`docs/images/avcam-status.svg\` after ${GITHUB_RUN_NUMBER} / ${COUNT:-manual} shard updates."
+          fi

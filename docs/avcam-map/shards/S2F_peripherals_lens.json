@@ -1,0 +1,733 @@
+{
+  "schema_version": 1,
+  "domain": "2F",
+  "title": "Peripherals, sub-micro, E-mount lens and touch",
+  "phase": 2,
+  "milestone": "M4",
+  "summary": "SIO channel 3 and the sub-micro link, E-mount BL lens protocol on UART1/PL080, GPIO/ADC keys, touch, USB/SDIO glue and SPI/PMIC windows.",
+  "owner": "unassigned",
+  "status": "UNMAPPED",
+  "image": {
+    "sha256": "90d515cfec8b936f1ba9a69dcac462816b880297752a652474d67c4bba39125e",
+    "base": "0x635c6000"
+  },
+  "questions": [
+    "What are the SIO channel-3 and sub-micro link-buffer message formats, including the Slot A/B selection and the lens-rail latch?",
+    "What is the E-mount BL protocol state machine (UART1 + PL080 + P1.4) for focus, zoom and aperture?",
+    "How are GPIO/ADC keys and the touch IC reported into av-cam, and what debounce rules apply?",
+    "Which USB/SDIO/SPI/PMIC registers does av-cam touch, and which are Linux's?"
+  ],
+  "deliverable": "Peripheral contract for lens and sub-micro traffic, plus the key input path. Blocks M4.",
+  "scope": {
+    "commands": 0,
+    "tags": 23,
+    "mmio_pages": 52,
+    "abi": 0,
+    "functions": 94
+  },
+  "items": {
+    "commands": [],
+    "tags": [
+      {
+        "tag": "BL",
+        "strings": 120,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "BLSeq",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "BT",
+        "strings": 45,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "Glee",
+        "strings": 10,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "GleeInput",
+        "strings": 15,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "GleeOutput",
+        "strings": 15,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "GleePower",
+        "strings": 19,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "LensData0",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "LensData1",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "LensDrive",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "RcvINF",
+        "strings": 33,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "RcvRMC",
+        "strings": 39,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "SIO",
+        "strings": 3,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "SPI",
+        "strings": 6,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "glee_drv",
+        "strings": 33,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "glee_reg",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "lens_chroma_aberr_data",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "lens_distortion_data",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "lens_pfr_data",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "lens_shading_data",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "touch_shooting_mode",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "touch_spot_color_X",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "tag": "touch_spot_color_Y",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      }
+    ],
+    "mmio": [
+      {
+        "page": "0xf0203000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf0204000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf020b000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf0230000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf0261000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf0266000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf0275000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf02af000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf030a000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf030f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf0314000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf033f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf034f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf037f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf03cf000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf2405000",
+        "literal_loads": 40,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3800000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3801000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3802000",
+        "literal_loads": 3,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3810000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3811000",
+        "literal_loads": 3,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3817000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf382e000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3850000",
+        "literal_loads": 14,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3851000",
+        "literal_loads": 13,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3880000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3881000",
+        "literal_loads": 10,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf388c000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf388d000",
+        "literal_loads": 3,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf388e000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf388f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf38e3000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf38e4000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3900000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3901000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3910000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3911000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3914000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3917000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf392a000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3932000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3934000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf393a000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3950000",
+        "literal_loads": 10,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3951000",
+        "literal_loads": 10,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf3980000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf39bf000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf39c2000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf39c9000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf39ca000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf39d5000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      },
+      {
+        "page": "0xf39d9000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2F"
+        }
+      }
+    ],
+    "abi": []
+  },
+  "functions": {
+    "total": 94,
+    "unmapped": 94,
+    "located": 0,
+    "decompiled": 0,
+    "spec_ready": 0,
+    "entry_points": [
+      "0x6375160a",
+      "0x63a5bdac",
+      "0x6374f870",
+      "0x63751296",
+      "0x63a1fb54",
+      "0x639f02d0",
+      "0x63a5b91a",
+      "0x63a5bd4c",
+      "0x63a1b210",
+      "0x63a1b9f4",
+      "0x636b1c30",
+      "0x637570ec"
+    ]
+  },
+  "notes": []
+}

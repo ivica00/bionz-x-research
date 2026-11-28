@@ -7,12 +7,14 @@
     "/usr/lib/viewUnified2.so": {
       "bytes": 11530508,
       "sha256": "fa534aa2160fc3e9c93119a85bdd9f1988b5f9f64b62c43fad178fabe4fa823d",
-      "source": "artifacts/hardware/live-libs/viewUnified2.so, captured from the camera"
+      "source": "artifacts/hardware/live-libs/viewUnified2.so, captured from the camera",
+      "local_copy": "artifacts/hardware/live-libs/viewUnified2.so"
     },
     "/usr/lib/libmpr.so": {
       "bytes": 12665872,
       "sha256": "bb31351cbd546d88e8ff9bef006db75bd1dabfe3d2f67f359f04155cff9ab8af",
-      "source": "artifacts/dumps/a6400-live-lib/libmpr.so, captured from the camera; its size matches the libmpr.so mappings in tools/native_camera/mlv2/reference_layout_ilce6400.txt"
+      "source": "artifacts/dumps/a6400-live-lib/libmpr.so, captured from the camera; its size matches the libmpr.so mappings in tools/native_camera/mlv2/reference_layout_ilce6400.txt",
+      "local_copy": "artifacts/dumps/a6400-live-lib/libmpr.so"
     }
   },
   "avcam": {

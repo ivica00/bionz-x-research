@@ -1,0 +1,589 @@
+{
+  "schema_version": 1,
+  "domain": "2B",
+  "title": "IMX284 sensor, readout timing and P2S",
+  "phase": 2,
+  "milestone": "M3",
+  "summary": "Sensor interface, Leo PLL/MIPI D-PHY lock, the 19 IMX284 modes, P2S channel bursts and genlock.",
+  "owner": "unassigned",
+  "status": "UNMAPPED",
+  "image": {
+    "sha256": "90d515cfec8b936f1ba9a69dcac462816b880297752a652474d67c4bba39125e",
+    "base": "0x635c6000"
+  },
+  "questions": [
+    "What are the 19 mode descriptors (size, bit depth, frame timing), and where are they stored?",
+    "What is the Leo PLL/D-PHY lock sequence (0xFC021000 +0x50/+0x54/+0x58) and which status bits prove lock?",
+    "How does P2S channel 0/1 burst timing map to the 13-column mode tables, and who consumes the bursts?",
+    "How are [IDT] (391 strings) request/response pairs framed and acknowledged?"
+  ],
+  "deliverable": "Sensor control sequence and mode catalogue sufficient to start a readout without original code; the exact P2S frame contract for M3.",
+  "scope": {
+    "commands": 0,
+    "tags": 6,
+    "mmio_pages": 53,
+    "abi": 0,
+    "functions": 167
+  },
+  "items": {
+    "commands": [],
+    "tags": [
+      {
+        "tag": "GENLOCK",
+        "strings": 30,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "tag": "IDT",
+        "strings": 391,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "tag": "NSX_OPD",
+        "strings": 59,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "tag": "SENS",
+        "strings": 34,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "tag": "SENSER",
+        "strings": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "tag": "idt_SetAF_sync",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      }
+    ],
+    "mmio": [
+      {
+        "page": "0xf3020000",
+        "literal_loads": 83,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xf3021000",
+        "literal_loads": 3,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc001000",
+        "literal_loads": 16,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc002000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc00a000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc016000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc01c000",
+        "literal_loads": 77,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc01e000",
+        "literal_loads": 7,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc01f000",
+        "literal_loads": 19,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc020000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc021000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc02a000",
+        "literal_loads": 11,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc02b000",
+        "literal_loads": 3,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc02c000",
+        "literal_loads": 52,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc02d000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc02e000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc030000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc033000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc036000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc038000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc03b000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc040000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc060000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc080000",
+        "literal_loads": 27,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc098000",
+        "literal_loads": 4,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc099000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc09a000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc09b000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0a0000",
+        "literal_loads": 23,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0a3000",
+        "literal_loads": 81,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0a4000",
+        "literal_loads": 63,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0a5000",
+        "literal_loads": 5,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0a6000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0a7000",
+        "literal_loads": 4,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0a9000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0ac000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0b0000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0b1000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0b2000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0b3000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0b4000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0b5000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0b6000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0b8000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0b9000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0ba000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0bb000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0bc000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0bd000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0be000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0cf000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0ef000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      },
+      {
+        "page": "0xfc0f0000",
+        "literal_loads": 39,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2B"
+        }
+      }
+    ],
+    "abi": []
+  },
+  "functions": {
+    "total": 167,
+    "unmapped": 167,
+    "located": 0,
+    "decompiled": 0,
+    "spec_ready": 0,
+    "entry_points": [
+      "0x63951bf6",
+      "0x63b3756c",
+      "0x63951742",
+      "0x63782c52",
+      "0x6377ddfa",
+      "0x6378332c",
+      "0x63786fd0",
+      "0x63780910",
+      "0x63782a9a",
+      "0x637774fc",
+      "0x63780ed4",
+      "0x639a79c8"
+    ]
+  },
+  "notes": []
+}

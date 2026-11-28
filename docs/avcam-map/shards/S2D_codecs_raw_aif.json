@@ -1,0 +1,256 @@
+{
+  "schema_version": 1,
+  "domain": "2D",
+  "title": "Still/video encoders, RAW develop and AIF DMA",
+  "phase": 2,
+  "milestone": "M4",
+  "summary": "SFRS/SFRA encode statistics, IMLENCSTAT/IMLDECSTAT, RCRAW and 0xF3030000 cRAW2, the AIF DMA page and the ZIMA/DVENC movie path.",
+  "owner": "unassigned",
+  "status": "UNMAPPED",
+  "image": {
+    "sha256": "90d515cfec8b936f1ba9a69dcac462816b880297752a652474d67c4bba39125e",
+    "base": "0x635c6000"
+  },
+  "questions": [
+    "What are the AIF descriptor rings and the page at 0xF3040000 used for during capture?",
+    "Which encoder/decoder ops (JPEG op=0x11, ECS op=0x1B, RC0 UYVY) does av-cam issue, and with which buffer descriptors?",
+    "What is the cRAW2 (0xF3030000) frame layout and completion protocol (ARW 2.3)?",
+    "What do SFRS/SFRA and IMLENCSTAT report, and who consumes the statistics?"
+  ],
+  "deliverable": "Codec and RAW frame contract with buffer ownership and completion, enough for a first still capture. Blocks M4.",
+  "scope": {
+    "commands": 0,
+    "tags": 17,
+    "mmio_pages": 5,
+    "abi": 0,
+    "functions": 95
+  },
+  "items": {
+    "commands": [],
+    "tags": [
+      {
+        "tag": "CODEC_DIAG",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "tag": "ENCHANDLER",
+        "strings": 4,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "tag": "IMLDECSTAT",
+        "strings": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "tag": "IMLENCSTAT",
+        "strings": 26,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "tag": "RATECONTROL",
+        "strings": 26,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "tag": "RC",
+        "strings": 12,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "tag": "RCH",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "tag": "RCV",
+        "strings": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "tag": "RC_Acquire",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "tag": "RcvMPR",
+        "strings": 7,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "tag": "SEG",
+        "strings": 24,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "tag": "SFR",
+        "strings": 34,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "tag": "SFRA",
+        "strings": 107,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "tag": "SFRS",
+        "strings": 209,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "tag": "SFR_ERR_NOTREADY",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "tag": "SFRa",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "tag": "rcraw_spatial_equal",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      }
+    ],
+    "mmio": [
+      {
+        "page": "0xf3030000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "page": "0xf3031000",
+        "literal_loads": 81,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "page": "0xf303a000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "page": "0xf303f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      },
+      {
+        "page": "0xf3040000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "2D"
+        }
+      }
+    ],
+    "abi": []
+  },
+  "functions": {
+    "total": 95,
+    "unmapped": 95,
+    "located": 0,
+    "decompiled": 0,
+    "spec_ready": 0,
+    "entry_points": [
+      "0x63b306fc",
+      "0x63b3f0be",
+      "0x63b3f22c",
+      "0x63b31f4a",
+      "0x63b32724",
+      "0x63b3c194",
+      "0x63b2b6f4",
+      "0x63b30e5c",
+      "0x63b31188",
+      "0x63b332d8",
+      "0x63b392b6",
+      "0x63b3c264"
+    ]
+  },
+  "notes": []
+}

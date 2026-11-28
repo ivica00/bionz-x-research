@@ -40,6 +40,7 @@
 #include "hw/misc/cxd90014_sio.h"
 #include "hw/misc/cxd90014_adc.h"
 #include "hw/misc/cxd90045_cam.h"
+#include "hw/misc/cxd90045_dfe.h"
 #include "hw/misc/cxd90045_i2c.h"
 #include "hw/misc/cxd90045_jpeg.h"
 #include "hw/misc/cxd90045_peripherals.h"
@@ -5643,6 +5644,37 @@ static void sony_set_still_capture(Object *obj, bool enabled, Error **errp)
     sony_a6400_still_capture = enabled;
 }
 
+static bool sony_a6400_dfe_sensor;
+static bool sony_a6400_sysv_cold;
+
+static bool sony_get_dfe_sensor(Object *obj, Error **errp)
+{
+    return sony_a6400_dfe_sensor;
+}
+
+static void sony_set_dfe_sensor(Object *obj, bool enabled, Error **errp)
+{
+    if (phase_check(PHASE_MACHINE_INITIALIZED)) {
+        error_setg(errp, "dfe-sensor is a startup option");
+        return;
+    }
+    sony_a6400_dfe_sensor = enabled;
+}
+
+static bool sony_get_sysv_cold(Object *obj, Error **errp)
+{
+    return sony_a6400_sysv_cold;
+}
+
+static void sony_set_sysv_cold(Object *obj, bool enabled, Error **errp)
+{
+    if (phase_check(PHASE_MACHINE_INITIALIZED)) {
+        error_setg(errp, "sysv-cold is a startup option");
+        return;
+    }
+    sony_a6400_sysv_cold = enabled;
+}
+
 /*
  * Stationary 6-axis MEMS IMU responder on SIO channel 4 (0xF2405800, IRQ 205)
  * for IBIS and active-gyro bodies (ZV-E10, ILCE-6600, ILCE-7C, ILCE-7M3,
@@ -6461,6 +6493,9 @@ static void sony_a6400_init(MachineState *machine)
         sysbus_realize_and_unref(SYS_BUS_DEVICE(gpio), &error_fatal);
         sysbus_mmio_map(SYS_BUS_DEVICE(gpio), 0, CXD90045_GPIO_BASE);
         for (i = 0; i <= 16; i++) {
+            if (sony_a6400_dfe_sensor && (i == 14 || i == 15)) {
+                continue;
+            }
             sysbus_connect_irq(SYS_BUS_DEVICE(gpio), i,
                                pic[(i < 16 ? 121 + i : 144) - 32]);
         }
@@ -6590,6 +6625,7 @@ static void sony_a6400_init(MachineState *machine)
          */
         DeviceState *vph = qdev_new("cxd90014-vph");
         DeviceState *ev = qdev_new("cxd90014-evsel");
+        qdev_prop_set_bit(vph, "sysv-cold", sony_a6400_sysv_cold);
         qdev_set_id(vph, g_strdup("vph"), &error_fatal);
         sysbus_realize_and_unref(SYS_BUS_DEVICE(vph), &error_fatal);
         sysbus_mmio_map(SYS_BUS_DEVICE(vph), 0, 0xF3440000ULL);
@@ -6738,10 +6774,25 @@ static void sony_a6400_init(MachineState *machine)
         DeviceState *p2s1 = qdev_new("cxd90014-p2s");
         qdev_prop_set_uint64(p2s1, "base", 0xFC088000ULL);
         qdev_prop_set_uint32(p2s1, "channel-id", 1);
+        if (sony_a6400_dfe_sensor) {
+            qdev_prop_set_bit(p2s1, "frame-sync-gated", true);
+        }
         object_property_add_child(OBJECT(machine), "cxd90014-p2s-ch1",
                                   OBJECT(p2s1));
         sysbus_realize_and_unref(SYS_BUS_DEVICE(p2s1), &error_fatal);
         sysbus_mmio_map_overlap(SYS_BUS_DEVICE(p2s1), 0, 0xFC088000ULL, -400);
+
+        if (sony_a6400_dfe_sensor) {
+            if (!liveview) {
+                cxd90045_liveview_source_parse(&sony_a6400_lv_src,
+                                               sony_a6400_liveview_source,
+                                               &error_fatal);
+            }
+            cxd90045_dfe_create(machine, sysmem, p2s1, vph_dev,
+                                &sony_a6400_lv_src,
+                                pic[CXD90045_DFE_IRQ_MAIN_GIC - 32],
+                                pic[CXD90045_DFE_IRQ_ERR_GIC - 32]);
+        }
     }
 
     /*
@@ -7124,6 +7175,18 @@ static void sony_cxd90045_common_machine_init(MachineClass *mc,
     object_class_property_set_description(OBJECT_CLASS(mc), "still-capture",
         "Enable post-boot Sub-Micro CAIF shutter/exposure link, active "
         "0xF3030000 IDT/RCRAW cRAW2 codec (IRQ 88), and FE-AIF IRQs 70..72");
+    object_class_property_add_bool(OBJECT_CLASS(mc), "dfe-sensor",
+                                   sony_get_dfe_sensor,
+                                   sony_set_dfe_sensor);
+    object_class_property_set_description(OBJECT_CLASS(mc), "dfe-sensor",
+        "Enable stateful CXD90045 DFE sensor front-end (Leo CRG, DFE mailbox, "
+        "DfeTop, SyncSeq, DrvSGC0/1, P2S frame-sync gate, SLVS-EC, RdcW0)");
+    object_class_property_add_bool(OBJECT_CLASS(mc), "sysv-cold",
+                                   sony_get_sysv_cold,
+                                   sony_set_sysv_cold);
+    object_class_property_set_description(OBJECT_CLASS(mc), "sysv-cold",
+        "Hold SYSV 0xF3402000 master V-clock stopped at cold reset until the "
+        "guest writes non-zero to SYSV control (+0x010/+0x020/+0x02C/+0x030/+0x100)");
 }
 
 #define DEFINE_SONY_CXD90045_BODY(fn_suffix, mname, mdesc)                  \

@@ -2,15 +2,18 @@
  *
  * 1. av-cam.bin RAM (A5 4896x3376): patches fe_rec_0a, fe_rec_19, rcv_desc,
  *    size_rows[16], and rt_t14[16] (337 entries, proven ref=0/rcv=0 on live HW).
- * 2. libmpr.so MP4 container hooks (tkhd 0x87072C & stsd 0x870A74): sets
+ * 2. libmpr.so MP4 container hooks (tkhd +0x8612AC & stsd +0x8615F4, captured camera build bb31351c; E0757): sets
  *    3840x2160 display/sample-entry height to 2560 (3840 / 1.5 = 2560).
  * 3. viewUnified2.so P1 (0x77D110..0x77D5D0): changes Movie 16:9 rear LCD box
  *    (0, 60, 640, 360) to 3:2 (0, 26, 640, 428).
  *
  * Fail-closed: ON writes only if stock bytes match; OFF restores exact stock.
- * Logs to /tmp_bt/mods/opengate_a1.log.
+ * Logs to /tmp_bt/mods/opengate_a1.log: one ON/OFF summary line (unchanged format), up to 8
+ * DIAG lines for av-cam sites that did not switch, and one HOOK line per tkhd/stsd call.
  */
 #include <stdint.h>
+
+static void hook_note(int tag, uint32_t a, uint32_t b, uint32_t c, uint32_t r);
 
 typedef uint32_t (*tkhd_fn_t)(uint32_t model, uint32_t w, uint32_t h, uint32_t kind);
 typedef uint32_t (*stsd_fn_t)(uint32_t ctx, const void *desc, uint32_t arg2);
@@ -23,10 +26,13 @@ __attribute__((visibility("default"))) uint32_t tkhd_hook_c(
     if (*(const volatile uint32_t *)(uintptr_t)(model + 0xd8u) != 0u) {
         return 4u;
     }
+    uint32_t h_in = h;
     if (kind == 5u && w == (3840u << 16) && h == (2160u << 16)) {
         h = (2560u << 16);
     }
-    return orig(model, w, h, kind);
+    uint32_t r = orig(model, w, h, kind);
+    hook_note('t', kind, w >> 16, ((h_in >> 16) << 16) | (h >> 16), r);
+    return r;
 }
 
 __attribute__((visibility("default"))) uint32_t stsd_hook_c(
@@ -40,8 +46,14 @@ __attribute__((visibility("default"))) uint32_t stsd_hook_c(
             const uint32_t *s32 = (const uint32_t *)desc;
             for (int i = 0; i < 8; i++) tmp[i] = s32[i];
             ((uint16_t *)tmp)[5] = 2560u;
-            return orig(ctx, tmp, arg2);
+            uint32_t r = orig(ctx, tmp, arg2);
+            hook_note('s', 1u, 3840u, (2160u << 16) | 2560u, r);
+            return r;
         }
+        uint32_t w = d16[4], h = d16[5];
+        uint32_t r = orig(ctx, desc, arg2);
+        hook_note('s', 0u, w, (h << 16) | h, r);
+        return r;
     }
     return orig(ctx, desc, arg2);
 }
@@ -105,7 +117,7 @@ static uint32_t find_lib_base(const char *suffix, int slen) {
     return base;
 }
 
-static char swap_phys_u16(long fd, uint32_t pa, uint16_t exp_v, uint16_t tgt_v) {
+static char swap_phys_u16(long fd, uint32_t pa, uint16_t exp_v, uint16_t tgt_v, uint16_t *seen) {
     long base = sc6(192 /* mmap2 */, 0, 4096, 3 /* PROT_READ|PROT_WRITE */, 1 /* MAP_SHARED */,
                     fd, (long)(pa >> 12));
     if (base < 0 && base > -4096) return 'm';
@@ -119,6 +131,7 @@ static char swap_phys_u16(long fd, uint32_t pa, uint16_t exp_v, uint16_t tgt_v) 
         cur = *p;
         c = (cur == tgt_v) ? 'w' : 'v';
     }
+    *seen = cur;
     sc3(91 /* munmap */, base, 4096, 0);
     return c;
 }
@@ -501,6 +514,35 @@ static void ph4(lbuf_t *l, uint32_t v) {
     }
 }
 
+static void log_line(lbuf_t *l) {
+    pc(l, '\n');
+    long logfd = sc3(5 /* open */, (long)"/tmp_bt/mods/opengate_a1.log",
+                     01 | 0100 | 02000 /* O_WRONLY|O_CREAT|O_APPEND */, 0644);
+    if (logfd >= 0) {
+        sc3(4 /* write */, logfd, (long)l->b, (long)l->n);
+        sc3(6 /* close */, logfd, 0, 0);
+    }
+}
+
+/* "HOOK t kind=00000005 w=00000f00 h=08700a00 r=00000000": one line per tkhd/stsd call.
+ * h packs (height in << 16) | (height passed on), so 0870 -> 0a00 means 2160 -> 2560.
+ * For stsd, the first field is hit=1 when the 3840x2160 entry was rewritten. */
+static void hook_note(int tag, uint32_t a, uint32_t b, uint32_t c, uint32_t r) {
+    lbuf_t l;
+    l.n = 0;
+    ps(&l, tag == 't' ? "HOOK t kind=" : "HOOK s hit=");
+    ph(&l, a);
+    ps(&l, " w=");
+    ph(&l, b);
+    ps(&l, " h=");
+    ph(&l, c);
+    ps(&l, " r=");
+    ph(&l, r);
+    log_line(&l);
+}
+
+#define DIAG_MAX 8
+
 static void run_mod(int enable) {
     lbuf_t l;
     l.n = 0;
@@ -515,10 +557,26 @@ static void run_mod(int enable) {
         for (int i = 0; i < AV_PATCH_COUNT; i++) {
             uint16_t e = enable ? AV_PATCHES[i].stock : AV_PATCHES[i].patched;
             uint16_t t = enable ? AV_PATCHES[i].patched : AV_PATCHES[i].stock;
-            char c = swap_phys_u16(fd, AV_PATCHES[i].pa, e, t);
+            uint16_t seen = 0;
+            char c = swap_phys_u16(fd, AV_PATCHES[i].pa, e, t, &seen);
             if (c == 'w') { cw++; ok++; }
             else if (c == 'a') { ca++; ok++; }
-            else cx++;
+            else {
+                /* "DIAG <c> i=<site index> v=<value found>" for the first DIAG_MAX failures:
+                 * x = neither stock nor patched, m = mmap2 failed, v = write did not read back. */
+                if (cx < DIAG_MAX) {
+                    lbuf_t d;
+                    d.n = 0;
+                    ps(&d, "DIAG ");
+                    pc(&d, c);
+                    ps(&d, " i=");
+                    ph4(&d, (uint32_t)i);
+                    ps(&d, " v=");
+                    ph4(&d, c == 'm' ? 0u : seen);
+                    log_line(&d);
+                }
+                cx++;
+            }
         }
         pc(&l, 'w'); ph4(&l, cw);
         ps(&l, ",a"); ph4(&l, ca);
@@ -547,14 +605,7 @@ static void run_mod(int enable) {
     }
     ps(&l, " ok=");
     ph(&l, (uint32_t)ok);
-    pc(&l, '\n');
-
-    long logfd = sc3(5 /* open */, (long)"/tmp_bt/mods/opengate_a1.log",
-                     01 | 0100 | 02000 /* O_WRONLY|O_CREAT|O_APPEND */, 0644);
-    if (logfd >= 0) {
-        sc3(4 /* write */, logfd, (long)l.b, (long)l.n);
-        sc3(6 /* close */, logfd, 0, 0);
-    }
+    log_line(&l);
 }
 
 __attribute__((visibility("default"))) void oga1_on(void) { run_mod(1); }

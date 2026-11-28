@@ -2,9 +2,9 @@
 
 | | |
 | :--- | :--- |
-| **Status** | **NOT RUN ON A CAMERA YET.** The kit is checked offline only (24 tests in `tests/test_opengate_a6400_kit.py` and `selftest`) |
+| **Status** | **Ran once on one `ILCE-6400` (2026-11-28, [E0757](../../../docs/evidence/0757-opengate-a1-captured-libmpr-hooks-and-fast-loop-kit.md)):** check READY, apply, ON gave APPLIED, OFF and putback gave STOCK. **The output stayed 16:9** (live view and clip) and the MP4 hooks were never called. 35 offline tests |
 | **Tested on** | Nothing yet. The mod's av-cam.bin table step (`A5`, 4896 × 3376) comes from live RAM tests on one `ILCE-6400` that all restored to stock ([E0752](../../../docs/evidence/0752-a6400-open-gate-a12-to-a19-dual-pipe-live.md)); no 3:2 clip has been recorded |
-| **Known issues** | **The MP4 header hooks do not match the camera's `libmpr.so`** (below). `check` reports NOT READY on a camera with the captured libraries until the mod is rebuilt |
+| **Known issues** | **No 3:2 output.** The pipeline's output descriptors stay 3840 × 2160, the rear LCD words have no visible effect, and recording does not call the hooked `tkhd`/`stsd` functions (their live bytes do match). `tcp_debugd` serves one client at a time, so stop `watch` before other commands |
 | **Not tested yet** | Everything on a camera: the screen step, recording, the MP4 headers, the power switch |
 | **How to revert** | Switch `OpenGate A1` OFF in `MENU → Mods`, run `putback`. If it does not say STOCK: power off and pull the battery for 10 seconds |
 | **What to send back** | The `export` zip and the console output, via a [physical test report](../../../.github/ISSUE_TEMPLATE/physical-test-report.yml) |
@@ -18,17 +18,24 @@ three things, all in RAM:
 2. **MP4 headers** in `libmpr.so` (`tkhd`, `stsd`): 3840 × 2160 becomes 3840 × 2560.
 3. **Rear LCD box** in `viewUnified2.so`: the Movie 16:9 box (0, 60, 640, 360) becomes 3:2 (0, 26, 640, 428).
 
-## Known issue: the MP4 header hooks
+## MP4 header hooks (fixed in E0757)
 
-The mod hooks `libmpr.so` at reference offsets `0x87072C` (`tkhd`) and `0x870A74` (`stsd`) and
-expects the bytes `f8b50446…` and `f0b593b0…` there. Those bytes are where the **2.00 updater's**
-`libmpr.so` has them. The `libmpr.so` captured from the camera (`artifacts/dumps/a6400-live-lib/`,
-whose size matches the camera's own memory map) holds them **`0xF480` lower**, at `0x8612AC` and
-`0x8615F4`. The `viewUnified2.so` sites, by contrast, match the captured camera library.
+The first build hooked `libmpr.so` at the **2.00 updater's** offsets (`0x87072C`, `0x870A74`). The
+camera's own `libmpr.so` (`artifacts/dumps/a6400-live-lib/`) has the same bytes `0xF480` lower, at
+`0x8612AC` and `0x8615F4` ([E0756](../../../docs/evidence/0756-opengate-a1-libmpr-hook-sites-and-guarded-test-kit.md)).
+`build_v2_wsl.sh` now declares those (`0x079a52ac`, `0x079a55f4`). If a camera has yet another build,
+`check` searches the live library and prints the corrected `--hook` line.
 
-So on a camera with the captured libraries, `check` stops with `hook tkhd_hook_tramp: … Mod Loader v2
-would refuse or misplace this hook`, and nothing is written. The fix is to rebuild the mod with hook
-addresses taken from the captured `libmpr.so`; it is not part of this kit.
+## Mod log lines
+
+`/tmp_bt/mods/opengate_a1.log` (read by `verify`, `watch` and `export`):
+
+| Line | Meaning |
+| :--- | :--- |
+| `ON av=w0151,a0000,x0000 vu=wwwwwwwwwwwwwwww ok=00000161` | Summary of one ON or OFF: av-cam sites written / already / mismatched, 16 screen words, total OK |
+| `DIAG x i=0005 v=beef` | Up to 8 per ON/OFF: site 5 held 0xBEEF (`x` neither stock nor patched, `m` mmap failed, `v` no read-back) |
+| `HOOK t kind=00000005 w=00000f00 h=08700a00 r=…` | A recording wrote the track header: 3840 wide, height 2160 → 2560 |
+| `HOOK s hit=00000001 w=00000f00 h=08700a00 r=…` | The sample entry was rewritten the same way |
 
 ## Launchers
 
@@ -40,7 +47,10 @@ Windows: `windows\<name>.cmd`. macOS/Linux: `macos/<name>.command`. Or, from the
 | `selftest` | Runs the whole flow against a simulated camera | No (no camera needed) |
 | `check` | Hashes `viewUnified2.so` and `libmpr.so` on the camera, reads the 16 screen words and both hook sites from `im.elf` memory, checks that Mod Loader v2 is installed and that the mod is off. Verdict **READY** / **NOT READY** | No |
 | `apply` | Needs a READY `check` from this power-on, less than 30 minutes old. Runs the check again, asks for a typed `YES`, and stages `OpenGateA1.mod` in `/tmp_bt/mods/` (read back and hash-checked) | **Yes: one file under `/tmp_bt`** |
-| `verify` | Reads the mod's own log line and the live screen words: **APPLIED**, **STOCK** or **MIXED** | No |
+| `verify` | Reads the mod's log (summary, DIAG, HOOK lines), the live screen words and both hook sites: **APPLIED** (needs the hooks installed), **STOCK** or **MIXED** with the failing sites named | No |
+| `watch` | Prints a live timeline of new log lines, screen words, hooks, reload results and restarts; `--until APPLIED` stops when the mod is fully on | No |
+| `reload` | With the mod ON: replaces it in place through the loader's reload request (no menu toggle) and reads the hooks and code back | **Yes: replaces that one file** |
+| `cycle` | `--build`: WSL build + Unicorn gate; then `apply` and `watch --until APPLIED`, or `reload` if the mod is ON; then `verify` | Same as `apply` / `reload` |
 | `putback` | After you switch the mod OFF: confirms **STOCK**, then removes the staged file (only if this kit staged it) | **Yes: removes that file** |
 | `export` | Zips this kit's receipts with the mod log, the loader log, `/proc/version`, `/proc/uptime` and the tail of `/proc/klog` | No |
 
@@ -48,6 +58,18 @@ What the kit never does: read or write `/dev/mem` (`tools/devmem_policy.py` forb
 av-cam.bin tables live), touch `/setting` or the Backup files, write flash, or switch the mod ON for
 you. Because the av-cam.bin tables cannot be read, their identity is **inferred** from the matching
 libraries (same captured camera); the mod's per-site stock guard and its log are the only av-cam checks.
+
+## Fast loop for developers (Wi-Fi debugger)
+
+With the camera on Wi-Fi and `tcp_debugd` build 8 or later running (`OP_MEM` is required):
+
+```powershell
+.\venv\Scripts\python.exe -m tools.kits.opengate_a6400 cycle --build --host 192.168.100.17
+```
+
+The first run stages the build and waits for you to switch the mod ON. While it stays ON, the next
+`cycle --build` swaps in the new build through a reload request: open or move within the Sony menu once
+so the loader picks it up. `watch --host …` in a second terminal shows every log line as it is written.
 
 ## Before you start
 

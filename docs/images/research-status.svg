@@ -10,15 +10,15 @@
 <rect x="24" y="68" width="192.878" height="26" rx="5" fill="#21262d" stroke="#30363d" stroke-width="1" />
 <rect x="94.92" y="68" width="121.958" height="26" rx="5" fill="#8957e5" />
 <text x="33" y="85" fill="#c9d1d9" font-size="10.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">map areas</text>
-<text x="103.92" y="85" fill="#ffffff" font-size="10.5" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">17 · 114 entities</text>
+<text x="103.92" y="85" fill="#ffffff" font-size="10.5" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">17 · 117 entities</text>
 <rect x="224.878" y="68" width="181.354" height="26" rx="5" fill="#21262d" stroke="#30363d" stroke-width="1" />
 <rect x="278.158" y="68" width="128.074" height="26" rx="5" fill="#2ea043" />
 <text x="233.878" y="85" fill="#c9d1d9" font-size="10.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">claims</text>
-<text x="287.158" y="85" fill="#ffffff" font-size="10.5" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">393 · 52 retracted</text>
+<text x="287.158" y="85" fill="#ffffff" font-size="10.5" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">401 · 52 retracted</text>
 <rect x="414.232" y="68" width="217.574" height="26" rx="5" fill="#21262d" stroke="#30363d" stroke-width="1" />
 <rect x="479.272" y="68" width="152.534" height="26" rx="5" fill="#1f6feb" />
 <text x="423.232" y="85" fill="#c9d1d9" font-size="10.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">evidence</text>
-<text x="488.272" y="85" fill="#ffffff" font-size="10.5" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">804 indexed · 289 deep</text>
+<text x="488.272" y="85" fill="#ffffff" font-size="10.5" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">808 indexed · 290 deep</text>
 <rect x="639.806" y="68" width="89.3904" height="26" rx="5" fill="#21262d" stroke="#30363d" stroke-width="1" />
 <rect x="698.966" y="68" width="30.2304" height="26" rx="5" fill="#d29922" />
 <text x="648.806" y="85" fill="#c9d1d9" font-size="10.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">hazards</text>
@@ -89,7 +89,7 @@
 <text x="40" y="670" fill="#c9d1d9" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">Live hardware observations and peripheral contracts</text>
 <text x="434" y="670" fill="#8b949e" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">15/21 · 40/2</text>
 <text x="40" y="690" fill="#c9d1d9" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">Imaging pipeline: color, RAW, RCRAW and recording paths</text>
-<text x="434" y="690" fill="#8b949e" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">0/61 · 20/0</text>
+<text x="434" y="690" fill="#8b949e" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">0/64 · 24/0</text>
 <text x="40" y="710" fill="#c9d1d9" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">L2 full-system kernel boot (UnicornMachine)</text>
 <text x="434" y="710" fill="#8b949e" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">88/88 · 47/10</text>
 <text x="40" y="730" fill="#c9d1d9" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">L3 user space: original im.elf under InterpreterProbe</text>
@@ -103,7 +103,7 @@
 <text x="40" y="810" fill="#c9d1d9" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">CXD90045 multi-device platform</text>
 <text x="434" y="810" fill="#8b949e" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">0/24 · 14/1</text>
 <text x="40" y="830" fill="#c9d1d9" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">QEMU sony-a6400 machine</text>
-<text x="434" y="830" fill="#8b949e" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">64/104 · 24/4</text>
+<text x="434" y="830" fill="#8b949e" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">65/106 · 28/4</text>
 <text x="40" y="850" fill="#c9d1d9" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">Storage, SD card and backup service</text>
 <text x="434" y="850" fill="#8b949e" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">0/22 · 9/0</text>
 <text x="40" y="870" fill="#c9d1d9" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">USB composite UVC/PTP on the physical camera (before EP0...</text>
@@ -115,17 +115,17 @@
 <text x="40" y="930" fill="#c9d1d9" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">Wi-Fi and remote control</text>
 <text x="434" y="930" fill="#8b949e" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">0/15 · 6/1</text>
 <text x="40" y="952" fill="#c9d1d9" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">Evidence records indexed by an area</text>
-<text x="434" y="952" fill="#f0f6fc" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">804 / 804 · 100.0%</text>
+<text x="434" y="952" fill="#f0f6fc" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">808 / 808 · 100.0%</text>
 <rect x="40" y="958" width="394" height="6" rx="3" fill="#21262d" />
 <rect x="40" y="958" width="394" height="6" rx="3" fill="#1f6feb" />
 <text x="40" y="984" fill="#c9d1d9" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">Evidence records cited by curated claims</text>
-<text x="434" y="984" fill="#f0f6fc" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">731 / 804 · 90.9%</text>
+<text x="434" y="984" fill="#f0f6fc" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">736 / 808 · 91.1%</text>
 <rect x="40" y="990" width="394" height="6" rx="3" fill="#21262d" />
-<rect x="40" y="990" width="358.226" height="6" rx="3" fill="#8957e5" />
+<rect x="40" y="990" width="358.891" height="6" rx="3" fill="#8957e5" />
 <text x="40" y="1016" fill="#c9d1d9" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">Evidence records deep-reviewed (read in full)</text>
-<text x="434" y="1016" fill="#f0f6fc" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">289 / 804 · 35.9%</text>
+<text x="434" y="1016" fill="#f0f6fc" font-size="9" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="end">290 / 808 · 35.9%</text>
 <rect x="40" y="1022" width="394" height="6" rx="3" fill="#21262d" />
-<rect x="40" y="1022" width="141.624" height="6" rx="3" fill="#2ea043" />
+<rect x="40" y="1022" width="141.411" height="6" rx="3" fill="#2ea043" />
 <text x="486" y="609" fill="#f0f6fc" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">F01  Synthetic NAND parity with a real body</text>
 <text x="486" y="623" fill="#f0883e" font-size="8.5" font-weight="400" font-family="Consolas, 'Courier New', monospace" text-anchor="start">open · a6000-emulator</text>
 <text x="486" y="645" fill="#f0f6fc" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">F01  Remaining ILCE-6400A flash boundary</text>
@@ -173,6 +173,6 @@
 <rect x="382.72" y="1311" width="10" height="10" rx="2" fill="#21262d" stroke="#30363d" stroke-width="1" />
 <text x="398.72" y="1320" fill="#c9d1d9" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">not yet mapped</text>
 <text x="24" y="1342" fill="#9da7b3" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">Counts what the knowledge map describes, not an overall firmware compatibility percentage.</text>
-<text x="24" y="1358" fill="#9da7b3" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">All 804 evidence records are indexed; claims summarise them and the records stay authoritative.</text>
+<text x="24" y="1358" fill="#9da7b3" font-size="9.5" font-weight="400" font-family="Segoe UI, Arial, sans-serif" text-anchor="start">All 808 evidence records are indexed; claims summarise them and the records stay authoritative.</text>
 </g>
 </svg>
