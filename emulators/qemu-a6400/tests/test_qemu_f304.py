@@ -112,6 +112,16 @@ def proof(q):
         addr = PAGE + off
         q.wr(addr, 0x5A5A0000 + i)
         check("Z0.%04x_reads_zero" % off, q.rd(addr), 0)
+    # L0179: a 4-byte write of 0 to +0x100 clears the stored +0x110 value;
+    # a nonzero +0x100 write leaves it alone.
+    q.wr(PAGE + 0x110, 1)
+    check("L0179.110_reads_1", q.rd(PAGE + 0x110), 1)
+    q.wr(PAGE + 0x100, 1)
+    check("L0179.100_nonzero_keeps_110", q.rd(PAGE + 0x110), 1)
+    q.wr(PAGE + 0x100, 0)
+    check("L0179.100_zero_clears_110", q.rd(PAGE + 0x110), 0)
+    q.wr(PAGE + 0x110, 1)
+    check("L0179.110_reads_1_again", q.rd(PAGE + 0x110), 1)
     name, addr = UNRULED
     q.wr(addr, 0xCAFEF00D)
     check("N.%s_read" % name, q.rd(addr), 0)
