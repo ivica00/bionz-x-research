@@ -20,6 +20,10 @@
 # EVSEL_LATE_US (opt-in source-30 delay in us, E0557; unset = off),
 # CAMPIG_ENABLE_READBACK=1 (opt-in CamPig IRQ enable register, E0566),
 # SGC1_EVENT_A=1 (opt-in Sgc1 event A and IRQ 35, E0569).
+# DFE_SENSOR=1 (opt-in CXD90045 DFE sensor front-end: Leo CRG, DFE mailbox,
+#   DfeTop, SyncSeq, DrvSGC0/1, P2S Ch 1 frame-sync gate, SLVS-EC, RdcW0).
+# SYSV_COLD=1 (opt-in cold SYSV start: hold SYSV 0xF3402000 stopped at reset
+#   until guest writes SYSV control).
 # GATE_FORCE_PROBE=1 (declared stimulus cond. PROBE gate-force: one-shot patch
 # of the av-cam step-26 producer cbz at PA 0x03874fd0 to a NOP; not a fix).
 # ENTRY_FORCE_PROBE=1 (declared stimulus cond. PROBE entry-force: while the
@@ -485,6 +489,12 @@ if [ "${SD_UHS_U3:-0}" = 1 ]; then
 fi
 if [ "${STILL_CAPTURE:-0}" = 1 ]; then
     MACHINE="$MACHINE,still-capture=on"
+fi
+if [ "${DFE_SENSOR:-0}" = 1 ]; then
+    MACHINE="$MACHINE,dfe-sensor=on"
+fi
+if [ "${SYSV_COLD:-0}" = 1 ]; then
+    MACHINE="$MACHINE,sysv-cold=on"
 fi
 LIVEVIEW_ARGS=()
 if [ -n "${LIVEVIEW_SOURCE:-}" ]; then

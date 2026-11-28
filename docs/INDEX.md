@@ -21,6 +21,7 @@ For subject lookups (an address, symbol, device, or "is E0xxx still valid?") use
 | Document | Purpose |
 | --- | --- |
 | [CURRENT_STATE.md](CURRENT_STATE.md) | Active checkpoint across all four tracks (L2 Boot, L3 App/GUI, Track B UVC/PTP, Multi-Device) |
+| [AVCAM_RESEARCH_MAP.md](AVCAM_RESEARCH_MAP.md) | `av-cam.bin` Phase 0 output: measured ORIL profile, ten domain shards, and the deep research required per area (`E0759`) |
 | [DEVELOPERS.md](DEVELOPERS.md) | Developer entry point: quick start, the two emulators, what does not work yet, and where to go next |
 | [REPOSITORY.md](REPOSITORY.md) | Repository layout, module launch paths, and structural CI checks |
 | [LAYOUT_MIGRATION.md](LAYOUT_MIGRATION.md) | 2026-11-28 move to `apps/`, `emulators/`, `research/`: old path to new path, local untracked files |

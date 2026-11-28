@@ -206,5 +206,29 @@ ret_stsd = call_thumb(MOD_BASE + syms["stsd_hook_tramp"], 0x1234, desc_ptr, 0)
 assert ret_stsd == 2560, f"stsd_hook expected 2560, got {ret_stsd}"
 assert struct.unpack("<H", uc.mem_read(desc_ptr + 10, 2))[0] == 2160  # original desc untouched!
 
-print(log_buf.decode("latin1").strip())
+log_text = log_buf.decode("latin1")
+lines = log_text.strip().splitlines()
+assert "HOOK t kind=00000005 w=00000f00 h=08700a00 r=0a000000" in lines, lines
+assert "HOOK s hit=00000001 w=00000f00 h=08700a00 r=00000a00" in lines, lines
+assert not any(line.startswith("DIAG") for line in lines), lines
+# The busy tkhd path (+0xd8 != 0) returns 4 without calling orig and without a HOOK line.
+assert sum(line.startswith("HOOK t") for line in lines) == 1, lines
+
+# 4. A site holding neither the stock nor the patched value yields MIXED counts and a DIAG line.
+bad_pa = AV_PATCHES[5][0]
+bad_off = AV_PAGE_MAP[bad_pa >> 12] + (bad_pa & 0xFFF)
+uc.mem_write(AV_BASE + bad_off, struct.pack("<H", 0xBEEF))
+log_buf.clear()
+call_thumb(MOD_BASE + on_off)
+on_lines = log_buf.decode("latin1").strip().splitlines()
+assert on_lines[0] == "DIAG x i=0005 v=beef", on_lines
+assert on_lines[-1].startswith("ON av=w0150,a0000,x0001 vu=wwwwwwwwwwwwwwww ok="), on_lines
+log_buf.clear()
+call_thumb(MOD_BASE + off_off)
+off_lines = log_buf.decode("latin1").strip().splitlines()
+assert off_lines[0] == "DIAG x i=0005 v=beef", off_lines
+assert struct.unpack("<H", uc.mem_read(AV_BASE + bad_off, 2))[0] == 0xBEEF  # foreign value untouched
+
+print(log_text.strip())
+print("\n".join(on_lines))
 print(f"UNICORN OPENGATE_A1 PASS ({len(code)} B, hooks=2)")

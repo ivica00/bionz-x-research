@@ -1,0 +1,1363 @@
+{
+  "schema_version": 1,
+  "domain": "1A",
+  "title": "ORIL boot, RTOS kernel and task scheduler",
+  "phase": 1,
+  "milestone": "M1",
+  "summary": "Entry path from the nine vector words through the ARM stub into Thumb code, the RTOS primitives (tasks, semaphores, event flags, timers, IRQ table) and the allocator over .bss and the LIRO RW copy.",
+  "owner": "unassigned",
+  "status": "UNMAPPED",
+  "image": {
+    "sha256": "90d515cfec8b936f1ba9a69dcac462816b880297752a652474d67c4bba39125e",
+    "base": "0x635c6000"
+  },
+  "questions": [
+    "What register state and memory contract does the loader leave at 0x635c6030, and what does the ARM stub at 0x635c6030..0x635c6044 change before its `bx`?",
+    "Where are the vector words used after boot (IRQ dispatch table, task switch, secondary-core bring-up), and how does E0569's record alignment show up?",
+    "What are the task/semaphore/event/timer object layouts, and which .bss ranges do they occupy?",
+    "Which allocator serves .bss and the LIRO RW copy, and what are its block headers?"
+  ],
+  "deliverable": "ABI notes for boot + RTOS primitives with a minimal init sequence that reaches the first idle loop, and the M1 entry contract.",
+  "scope": {
+    "commands": 0,
+    "tags": 5,
+    "mmio_pages": 121,
+    "abi": 17,
+    "functions": 226
+  },
+  "items": {
+    "commands": [],
+    "tags": [
+      {
+        "tag": "CTRLCORE",
+        "strings": 14,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "tag": "DBG",
+        "strings": 19,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "tag": "SYS",
+        "strings": 18,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "tag": "SYSTEM",
+        "strings": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "tag": "SYS_SENSER_CA_PUTS",
+        "strings": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      }
+    ],
+    "mmio": [
+      {
+        "page": "0xf0000000",
+        "literal_loads": 104,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0002000",
+        "literal_loads": 8,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0004000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0006000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf000a000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf000e000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf000f000",
+        "literal_loads": 6,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0014000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0016000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0017000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0018000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0019000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf001e000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0020000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0022000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0026000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0029000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf002d000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf002e000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf002f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0031000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0033000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0034000",
+        "literal_loads": 3,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0036000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0037000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf003b000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf003e000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0040000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0044000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0047000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf004f000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0054000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0057000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf005f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf006b000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf006e000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0080000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0090000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf0094000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf00a4000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf00a6000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf00bb000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf00bf000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2001000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2004000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2006000",
+        "literal_loads": 4,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2007000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf200f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf204f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf20e4000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf20e9000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2154000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2159000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2169000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf216f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2174000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf21cf000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf21ea000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf21f4000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf221a000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf221f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf222f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf223f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf224f000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf225f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf226f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2274000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2289000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf22df000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2344000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf23ff000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2402000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2403000",
+        "literal_loads": 7,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2404000",
+        "literal_loads": 16,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2406000",
+        "literal_loads": 15,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2407000",
+        "literal_loads": 11,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2408000",
+        "literal_loads": 6,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2409000",
+        "literal_loads": 5,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf240d000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf240f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2800000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2801000",
+        "literal_loads": 16,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2802000",
+        "literal_loads": 28,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2804000",
+        "literal_loads": 5,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2805000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2806000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf281a000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf288f000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf28af000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf28b4000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf28f9000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf28fa000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2900000",
+        "literal_loads": 16,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2910000",
+        "literal_loads": 12,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2911000",
+        "literal_loads": 4,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2912000",
+        "literal_loads": 23,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2913000",
+        "literal_loads": 4,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2914000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2915000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf292a000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf292b000",
+        "literal_loads": 6,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf292e000",
+        "literal_loads": 8,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf292f000",
+        "literal_loads": 2,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2931000",
+        "literal_loads": 3,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2932000",
+        "literal_loads": 37,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf293f000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2964000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2988000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf29af000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2a00000",
+        "literal_loads": 7,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2a01000",
+        "literal_loads": 34,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2a04000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2a10000",
+        "literal_loads": 11,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2a11000",
+        "literal_loads": 30,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2a12000",
+        "literal_loads": 28,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2a20000",
+        "literal_loads": 1,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2a21000",
+        "literal_loads": 19,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2a22000",
+        "literal_loads": 15,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2a30000",
+        "literal_loads": 13,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2a31000",
+        "literal_loads": 6,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      },
+      {
+        "page": "0xf2a32000",
+        "literal_loads": 3,
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "domain": "1A"
+        }
+      }
+    ],
+    "abi": [
+      {
+        "id": "vector-0",
+        "kind": "vector",
+        "address": "0x635c6044",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "ORIL header +0x0c"
+        }
+      },
+      {
+        "id": "vector-1",
+        "kind": "vector",
+        "address": "0x635c6058",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "ORIL header +0x0c"
+        }
+      },
+      {
+        "id": "vector-2",
+        "kind": "vector",
+        "address": "0x635c60b4",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "ORIL header +0x0c"
+        }
+      },
+      {
+        "id": "vector-3",
+        "kind": "vector",
+        "address": "0x635c6068",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "ORIL header +0x0c"
+        }
+      },
+      {
+        "id": "vector-4",
+        "kind": "vector",
+        "address": "0x635c6078",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "ORIL header +0x0c"
+        }
+      },
+      {
+        "id": "vector-5",
+        "kind": "vector",
+        "address": "0x635c6088",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "ORIL header +0x0c"
+        }
+      },
+      {
+        "id": "vector-6",
+        "kind": "vector",
+        "address": "0x635c6098",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "ORIL header +0x0c"
+        }
+      },
+      {
+        "id": "vector-7",
+        "kind": "vector",
+        "address": "0x635c609c",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "ORIL header +0x0c"
+        }
+      },
+      {
+        "id": "vector-8",
+        "kind": "vector",
+        "address": "0x635c60a0",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "ORIL header +0x0c"
+        }
+      },
+      {
+        "id": "liro-rw-copy",
+        "kind": "contract",
+        "description": "LIRO RW section copy: source, destination, size, who performs it",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "avcam_domains.ABI_CONTRACTS"
+        }
+      },
+      {
+        "id": "uipc-ring",
+        "kind": "contract",
+        "description": "UIPC request/response ring: header, slot size, indices, ownership",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "avcam_domains.ABI_CONTRACTS"
+        }
+      },
+      {
+        "id": "command-record",
+        "kind": "contract",
+        "description": "av_command_table record: id/handler/flag/checker and call convention",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "avcam_domains.ABI_CONTRACTS"
+        }
+      },
+      {
+        "id": "irq-delivery",
+        "kind": "contract",
+        "description": "IRQ delivery: CamPig 0xF3000000 IRQ 36, 0xF3120000 IRQ 35, SIO 201+ch",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "avcam_domains.ABI_CONTRACTS"
+        }
+      },
+      {
+        "id": "boot-handshake",
+        "kind": "contract",
+        "description": "Loader register state at entry and the ARM stub's effect",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "avcam_domains.ABI_CONTRACTS"
+        }
+      },
+      {
+        "id": "dma-coherency",
+        "kind": "contract",
+        "description": "Work-DMA / fill-engine completion and cache maintenance contract",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "avcam_domains.ABI_CONTRACTS"
+        }
+      },
+      {
+        "id": "task-abi",
+        "kind": "contract",
+        "description": "Task create/switch/exit and semaphore/event ABI",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "avcam_domains.ABI_CONTRACTS"
+        }
+      },
+      {
+        "id": "timer-tick",
+        "kind": "contract",
+        "description": "Timer/tick source, unit and wrap behaviour",
+        "state": "UNMAPPED",
+        "notes": "",
+        "auto": {
+          "source": "avcam_domains.ABI_CONTRACTS"
+        }
+      }
+    ]
+  },
+  "functions": {
+    "total": 226,
+    "unmapped": 226,
+    "located": 0,
+    "decompiled": 0,
+    "spec_ready": 0,
+    "entry_points": [
+      "0x639f05ac",
+      "0x63a948f4",
+      "0x639f3c38",
+      "0x63a5afb0",
+      "0x63a94044",
+      "0x639f39d0",
+      "0x63a5ae1a",
+      "0x636b5b76",
+      "0x639f3b58",
+      "0x6393de16",
+      "0x63a592c0",
+      "0x63a59170"
+    ]
+  },
+  "notes": []
+}

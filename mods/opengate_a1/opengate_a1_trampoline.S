@@ -26,7 +26,7 @@ ml_orig_stsd:
     nop
     nop
 
-/* Hook at libmpr.so +0x87072C (r0=model, r1=w_16_16, r2=h_16_16, r3=kind) */
+/* Hook at libmpr.so +0x8612AC (captured camera build; the 2.00 updater build has it at +0x87072C) (r0=model, r1=w_16_16, r2=h_16_16, r3=kind) */
 .global tkhd_hook_tramp
 .type tkhd_hook_tramp, %function
 .thumb_func
@@ -37,7 +37,7 @@ tkhd_hook_tramp:
     bl tkhd_hook_c
     pop {r4, pc}
 
-/* Hook at libmpr.so +0x870A74 (r0=ctx, r1=desc_ptr, r2=arg2) */
+/* Hook at libmpr.so +0x8615F4 (captured camera build; updater +0x870A74) (r0=ctx, r1=desc_ptr, r2=arg2) */
 .global stsd_hook_tramp
 .type stsd_hook_tramp, %function
 .thumb_func

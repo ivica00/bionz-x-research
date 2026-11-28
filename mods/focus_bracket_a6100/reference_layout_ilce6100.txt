@@ -1,0 +1,2 @@
+05d18000-0700e000 r-xp 00000000 00:00 0 /usr/lib/libObj.so
+07016000-07144000 rw-p 012f6000 00:00 0 /usr/lib/libObj.so

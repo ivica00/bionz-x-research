@@ -6,9 +6,9 @@
 area = "imaging-pipeline"
 title = "Imaging pipeline: color, RAW, RCRAW and recording paths"
 scope = """
-av-cam CC 3D LUT and gamma, the Arrivederci/ARRI color work, debayer/PSF/detail stages, RAW develop, IMX284, Open Gate and high-bit-depth paths, AIF DMA, the RCRAW probes, and the candidate mobile GPU 36-exposure ARW roll pipelines (SpektraFilm and fotufilm-engine)."""
+av-cam CC 3D LUT and gamma, the Arrivederci/ARRI color work, debayer/PSF/detail stages, RAW develop, IMX284, CXD90045 DFE sensor front-end (DrvSGC0, SyncSeq, DfeTop, SLVS-EC, RdcW0), Open Gate and high-bit-depth paths, AIF DMA, the RCRAW probes, and the candidate mobile GPU 36-exposure ARW roll pipelines (SpektraFilm and fotufilm-engine)."""
 evidence_span = "see record index"
-reviewed = "2026-11-27"
+reviewed = "2026-11-28"
 records = [
   "E0505",
   "E0555",
@@ -40,8 +40,11 @@ records = [
   "E0754",
   "E0755",
   "E0756",
+  "E0757:opengate",
+  "E0758",
   "E0739",
   "E0741",
+  "E0757:dfe",
   "E9105",
 ]
 
@@ -95,6 +98,14 @@ name = "Mobile fotufilm-engine GPU darkroom (candidate)"
 aliases = ["fotufilm-engine", "fotufilm", "FotufilmHalide", "FilmTileMetalBuilder"]
 related = ["img.cc-lut", "img.detail-psf", "app.android-spektrafilm"]
 summary = "Apache-2.0 Swift/C++/Halide film simulation architecture (DhaliwalX/fotufilm-engine) for developing 36-exposure 24 MP BIONZ X ARW 2.3 rolls on iOS Metal and Android Vulkan GPUs."
+
+[[entity]]
+id = "img.dfe-sgc0-syncseq"
+kind = "device"
+name = "CXD90045 DFE sensor front-end: DrvSGC0, SyncSeq, DfeTop, SLVS-EC and RdcW0"
+aliases = ["DrvSGC0", "SyncSeq", "DfeTop", "RdcW0", "SLVS-EC", "0xFC0A1100", "0xFC080000", "0xFC0E1100", "0xFC0F00B0", "dfe_dat.bin"]
+related = ["img.recording-paths", "img.rcraw"]
+summary = "72 MHz CXD90045/CXD90057 DFE sensor timing generator (DrvSGC0 at 0xFC0A1100..0xFC0A1BE0), SYSV-qualified frame sequencer (SyncSeq at 0xFC080000..0xFC080114), DfeTop W1S/W1C core/IRQ router (0xFC0A0000..0xFC0A0208, GIC IRQs 135/136), 64 KiB DFE ARM mailbox (0xFC0300F4..FC), SLVS-EC link lock (0xFC0F00B0), and RdcW0 Bayer RAW DMA writers (0xFC0E1100 and 0xFC0A9200)."
 
 [[claim]]
 id = "C01"
@@ -235,6 +246,34 @@ entities = ["img.recording-paths"]
 status = "verified-offline"
 text = "Unlocking ExlHelper output_aspect = 0 (3:2) on stock unbinned IMX284 Mode 16/17 (6000x3376 @ 24p/25p, FE <= 3445 avoiding E0728 Lost CAMOUT_V) and Mode 15 (4896x2760 @ 30p) invokes Sony's 0x6376E17C / 0x63CE2232 horizontal crop to extract 5064x3376 (17.09 MP 5.1K) and 4140x2760 (11.43 MP 4.1K) supersampled into 3240x2160 (validated by 0x63D67224 height == 2160 and MprLibCore::EncOpen .text +0x87025A/+0x870266 / +0x870696/+0x8706A2), while diffing all 13 IMX284 reglist columns isolates reg 0x0001 = 0x41 (16:9 window in cols 6,7,9,10,11) vs 0x40 (full-gate 3:2 continuous in cols 3,4,12, including Mode 10 0x44 1996x1332 unity capacitive averaging)."
 evidence = ["E0728", "E0741"]
+
+[[claim]]
+id = "C21"
+entities = ["img.recording-paths"]
+status = "verified-physical"
+text = "OpenGateA1 MP4-header hooks now target the captured camera libmpr.so (bb31351c...): tkhd +0x8612AC and stsd +0x8615F4 (unique 12-byte stock patterns, E0756 shift -0xF480; reference VAs 0x079A52AC / 0x079A55F4). The copied prologues are position-independent except tkhd's cbnz, whose taken path (return 4) the hook reproduces; build opengate-a1-build-2 (16f7c974...) passes the Unicorn test. Live (E0757): the stock bytes are at both addresses in im.elf and the mod applies (337 sites, 16 words, both hooks) and restores cleanly, but recording never called the hooked functions and the output stayed 16:9 because the id-0 output descriptors remain 3840x2160."
+evidence = ["E0756", "E0757:opengate"]
+
+[[claim]]
+id = "C22"
+entities = ["img.recording-paths"]
+status = "verified-physical"
+text = "Codec10 (mods/codec10, tools/codec10) implements a >8-bit Bayer/gray codec (14->10/12-bit minifloat curve, pack/Rice/BFL modes, crash-safe .c10 container) and verifies Cortex-A5 (no NEON, AT_HWCAP 0x1E0D7, ~520 MHz) performance on live ILCE-6400: 3-thread 1080p pack-mf runs in 25.2 ms wall (62.22 MB/s @ 24p, verify PASS), while fused BFL runs in 58.0 ms wall (38.29 MB/s, 1.625x smaller, verify PASS); 13/13 WSL tests match the Python reference bit-exactly, and the >8-bit frame tap remains open."
+evidence = ["E0758"]
+
+[[claim]]
+id = "C23"
+entities = ["img.dfe-sgc0-syncseq"]
+status = "verified-offline"
+text = "Across ILCE-6400 2.00 (av-cam.bin 90d515cf...), ILCE-6400A 1.01 (3029a174...), and ZV-E10 2.02/2.03 (bc6cba98..., qn06142/zv-e10-re@9b5debdd5f), dfe_dat.bin (703f457a..., 65,536 B) and dfe_app.bin (8f9a8d3f..., 1,956 B) are bit-identical and DrvSgc (0xFC0A1100..0xFC0A1BE0: +0x1108[0] internal trig_mode=0 start, +0x1130[16] trig_mode=1 SYSV/SyncSeq VD0 vs trig_mode=2 EXT_SYNC mux, +0x113C[0] Vd0Mask, +0x1194[16]/+0x1198[16] HD0/VD0 pad commits, +0x119C[16] secondary sync, +0x11A8/+0x11AC 17/97 fractional NLR -> 1,201,200 ticks = 0x00125430 @ 72 MHz, +0x1B80..1BE0 NLR LUT), SyncSeq (0xFC080000..0xFC080114: +0x030 live interval, +0x038 = 0x00125430, +0x0F4 = 0x00012AC8 -> P2S Ch 1 run-mode-0 burst #7), DfeTop W1S/W1C (0xFC0A0000/004, GIC IRQs 135/136 via 0xFC01FF00 VIC), SLVS-EC (0xFC0F00B0), and RdcW0 (0xFC0E1100 and 0xFC0A9200) replay identically in bounded Unicorn Thumb-2 execution (338 insns DrvSgc Mode-1, 583 insns SyncSeq_Setup)."
+evidence = ["E0757:dfe"]
+
+[[claim]]
+id = "C24"
+entities = ["img.dfe-sgc0-syncseq"]
+status = "inference"
+text = "Cold bare-metal IMX284 bring-up stalls with DrvSGC0 0xFC0A1110 = 0x00000001 (HVcnt = 0x3FFF3FFF, Fcnt = 0x7C), SyncSeq 0xFC080030 = 0x00EE466C, P2S Ch 1 burst #7 (0x00B3 = 0x90) pending, and SLVS-EC 0xFC0F00B0 = 0 when upstream master SYSV (0xF3402000 + SUGI_CLK 0xF3400000 + CLKGEN 0xF280xxxx) is left unstarted while DrvSgc0Start uses trig_mode = 1 (0xFC0A1108[0] = 0, 0xFC0A1130[16] = 0) or if DfeTop BIT(8)/BIT(24) + 0xFC0A0108[0] = 1 / Leo 0xFC021024 BIT(6) == 0 are cleared."
+evidence = ["E0757:dfe"]
 
 [[frontier]]
 id = "F01"
