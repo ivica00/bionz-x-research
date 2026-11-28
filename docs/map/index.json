@@ -14051,6 +14051,9 @@
     "0756-opengate-a1-libmpr-hook-sites-and-guarded-test-kit.md": [
       "imaging-pipeline"
     ],
+    "0761-qemu-f304-cpu2-wait-clear.md": [
+      "qemu-a6400"
+    ],
     "9001-l3-grm-osd-unit-4092e-refusal-and-newselect-timer-fix.md": [
       "l3-userspace"
     ],

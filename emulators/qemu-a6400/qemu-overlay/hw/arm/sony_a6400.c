@@ -3695,6 +3695,10 @@ static const Cxd90045F292Rule cxd90045_f303_rules[] = {
  * certified catch-all reply.  Writes are stored for every offset.  Unruled
  * offsets inside the window still log as cxd90045.f304.unmodelled, so the
  * window is not a blanket zero.
+ *
+ * L0179 DECLARED ASSUMPTION: a 4-byte write of 0 to +0x100 clears the stored
+ * +0x110 value (the firmware's own stop-and-wait sequence; no hardware
+ * capture).
  */
 static const Cxd90045F292Rule cxd90045_f304_rules[] = {
     { 0x0004, CXD90045_F292_ZERO,
@@ -3963,6 +3967,16 @@ static void cxd90045_f292_write(void *opaque, hwaddr off, uint64_t v,
         cxd90045_f292_log_unlisted(s, true, off, size, v);
     }
     s->regs[w >> 2] = (old & ~mask) | (((uint32_t)v << sh) & mask);
+    /*
+     * L0179 DECLARED ASSUMPTION (no hardware capture): the av-cam stop-and-
+     * wait sequence writes 0 to +0x100 and then polls +0x110 for 0
+     * (CPU2 loop 0x637881D2).  A 4-byte write of 0 to +0x100 clears the
+     * stored +0x110 value so that wait can exit.  Only the cxd90045.f304
+     * window is affected; writes to +0x110 still read back.
+     */
+    if (s->base == 0xF3040000ULL && w == 0x100 && size == 4 && v == 0) {
+        s->regs[0x110 >> 2] = 0;
+    }
 }
 
 static const MemoryRegionOps cxd90045_f292_ops = {
